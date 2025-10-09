@@ -1,0 +1,36 @@
+OX INVENTORY ONLY
+
+	['spike_roll'] = {
+		label = 'Spike Strip Roll',
+		description = 'Careful its sharp',
+		weight = 2000,
+		stack = false,	
+	},
+	
+	['spike_deployer'] = {
+		label = 'Spike Deployer',
+		description = 'Remote spike strip deployer. Requires the right frequency to activate. Thank god for modern technology',
+		weight = 5000,
+		stack = false,
+	},
+	
+	['spike_deployer_remote'] = {
+		label = 'Spike Remote',
+		description = 'Remote for tuning to the frequency of a spike strip deployer',
+		weight = 2000,
+		stack = false,
+		buttons = {
+			{
+				label = 'Tune Frequency',
+				action = function(slot)
+					print('Tune Remote')
+				end
+			},
+			{
+				label = 'Deploy Spikes',
+				action = function(slot)
+					print('Deploy')
+				end
+			}
+		}
+	},
