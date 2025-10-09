@@ -10,6 +10,8 @@ local deployedSpikes = {}
 local function cleanupAllSpikes()
     for spikeId, spikeData in pairs(deployedSpikes) do
         if DoesEntityExist(spikeData.entity) then
+            -- Remove target before deleting entity
+            exports.ox_target:removeLocalEntity(spikeData.entity)
             DeleteEntity(spikeData.entity)
         end
     end
@@ -34,7 +36,7 @@ RegisterNetEvent('QBCore:Client:OnPlayerLoaded', function()
 end)
 
 -- Add event to create spike prop for all clients
-RegisterNetEvent('spikes:client:createSpikeProp', function(coords, heading, spikeId, ownerServerId)
+RegisterNetEvent('spikes:client:createSpikeProp', function(coords, heading, spikeId, ownerServerId, frequency)
     local spikeModel = GetHashKey(config.deployer.prop)
     
     lib.requestModel(spikeModel)
@@ -49,14 +51,44 @@ RegisterNetEvent('spikes:client:createSpikeProp', function(coords, heading, spik
         entity = spike,
         coords = coords,
         heading = heading,
-        owner = ownerServerId
+        owner = ownerServerId,
+        frequency = frequency
     }
+    
+    -- Add target to the spike
+    exports.ox_target:addLocalEntity(spike, {
+        {
+            name = 'spike_get_frequency',
+            icon = 'fas fa-broadcast-tower',
+            label = 'Get Frequency',
+            onSelect = function()
+                lib.notify({
+                    title = 'Spike Strip Deployer',
+                    description = 'Frequency: ' .. frequency .. ' MHz',
+                    type = 'inform'
+                })
+            end
+        },
+        {
+            name = 'spike_pickup',
+            icon = 'fas fa-hand-paper',
+            label = 'Pick Up Deployer',
+            canInteract = function()
+                return ownerServerId == cache.serverId
+            end,
+            onSelect = function()
+                TriggerServerEvent('spikes:server:pickupSpike', spikeId)
+            end
+        }
+    })
 end)
 
 -- Event to remove specific spike
 RegisterNetEvent('spikes:client:removeSpike', function(spikeId)
     if deployedSpikes[spikeId] then
         if DoesEntityExist(deployedSpikes[spikeId].entity) then
+            -- Remove target before deleting entity
+            exports.ox_target:removeLocalEntity(deployedSpikes[spikeId].entity)
             DeleteEntity(deployedSpikes[spikeId].entity)
         end
         deployedSpikes[spikeId] = nil
@@ -68,6 +100,8 @@ RegisterNetEvent('spikes:client:cleanupPlayerSpikes', function(serverId)
     for spikeId, spikeData in pairs(deployedSpikes) do
         if spikeData.owner == serverId then
             if DoesEntityExist(spikeData.entity) then
+                -- Remove target before deleting entity
+                exports.ox_target:removeLocalEntity(spikeData.entity)
                 DeleteEntity(spikeData.entity)
             end
             deployedSpikes[spikeId] = nil
@@ -89,6 +123,14 @@ end)
 
 exports('useDeployer', function(data, slot)
     exports.ox_inventory:useItem(data, function(data)
+
+        if cache.vehicle then
+            return lib.notify({
+                description = 'You cannot deploy in a vehicle.',
+                type = 'error'
+            })
+        end
+
         local playerPed = PlayerPedId()
         local playerCoords = GetEntityCoords(playerPed)
         local playerHeading = GetEntityHeading(playerPed) - 90.0
@@ -110,6 +152,8 @@ exports('useDeployer', function(data, slot)
             duration = 3000,
             label = 'Dropping Spike Deployer...',
             useWhileDead = false,
+            allowCuffed = false,
+            allowSwimming = false,
             canCancel = true,
             disable = {
                 car = true,
