@@ -128,3 +128,27 @@ RegisterNetEvent('spikes:server:pickupSpike', function(spikeId)
         type = 'success'
     })
 end)
+
+-- Server-side event to tune the remote
+RegisterNetEvent('spikes:server:tuneRemoteFrequency', function(slot, frequency)
+    local src = source
+    
+    -- Verify item ownership again (for security)
+    local item = exports.ox_inventory:GetSlot(src, slot)
+    if item and item.name == 'spike_deployer_remote' then
+        exports.ox_inventory:SetMetadata(src, slot, {frequency = frequency})
+    end
+end)
+
+-- Server-side event to deploy spikes remotely
+RegisterNetEvent('spikes:server:remoteDeploySpikes', function(spikeId)
+    local src = source
+    
+    -- Get the spike data from your server-side storage
+    local spikeData = deployedSpikes[spikeId]
+    
+    if spikeData then
+        -- Notify all clients to activate these spikes
+        TriggerClientEvent('spikes:client:activateSpikes', -1, spikeId)
+    end
+end)

@@ -176,123 +176,200 @@ end)
 
 exports('useRoll', function(data, slot)
     exports.ox_inventory:useItem(data, function(data)
-        if isCarryingRoll then
-            return lib.notify({
-                description = 'You are already carrying a spike roll.',
-                type = 'error'
-            })
-        end
-        
-        if cache.vehicle then
-            return lib.notify({
-                description = 'You cannot use this in a vehicle.',
-                type = 'error'
-            })
-        end
-        
-        local playerPed = PlayerPedId()
-        
-        -- Load animation
-        lib.requestAnimDict(config.roll.anim.dict)
-        
-        -- Start animation (upper body only)
-        TaskPlayAnim(playerPed, config.roll.anim.dict, config.roll.anim.name, 8.0, 8.0, -1, 49, 0, false, false, false)
-        
-        -- Set state
-        isCarryingRoll = true
-        rollStateBag = LocalPlayer.state
-        rollStateBag:set('spikestripCarrying', true, true)
-        
-        -- Show text UI
-        lib.showTextUI('Deploying spikes - [BACKSPACE] or [ESC] to cancel')
-        
-        -- Watch for vehicle entry
-        lib.onCache('vehicle', function(vehicle)
-            if isCarryingRoll and vehicle then
-                cleanupRoll()
-                lib.notify({
-                    description = 'Spike roll placement cancelled - entered vehicle.',
+
+        if data then
+
+            if isCarryingRoll then
+                return lib.notify({
+                    description = 'You are already carrying a spike roll.',
                     type = 'error'
                 })
             end
-        end)
-        
-        -- Handle input for cancellation
-        CreateThread(function()
-            while isCarryingRoll do
-                Wait(0)
-                
-                -- Check for cancel keys
-                if IsControlJustPressed(0, 177) or IsControlJustPressed(0, 322) then -- Backspace or ESC
+            
+            if cache.vehicle then
+                return lib.notify({
+                    description = 'You cannot use this in a vehicle.',
+                    type = 'error'
+                })
+            end
+            
+            local playerPed = PlayerPedId()
+            
+            -- Load animation
+            lib.requestAnimDict(config.roll.anim.dict)
+            
+            -- Start animation (upper body only)
+            TaskPlayAnim(playerPed, config.roll.anim.dict, config.roll.anim.name, 8.0, 8.0, -1, 49, 0, false, false, false)
+            
+            -- Set state
+            isCarryingRoll = true
+            rollStateBag = LocalPlayer.state
+            rollStateBag:set('spikestripCarrying', true, true)
+            
+            -- Show text UI
+            lib.showTextUI('Deploying spikes - [BACKSPACE] or [ESC] to cancel')
+            
+            -- Watch for vehicle entry
+            lib.onCache('vehicle', function(vehicle)
+                if isCarryingRoll and vehicle then
                     cleanupRoll()
+                    lib.notify({
+                        description = 'Spike roll placement cancelled - entered vehicle.',
+                        type = 'error'
+                    })
+                end
+            end)
+            
+            -- Handle input for cancellation
+            CreateThread(function()
+                while isCarryingRoll do
+                    Wait(0)
+                    
+                    -- Check for cancel keys
+                    if IsControlJustPressed(0, 177) or IsControlJustPressed(0, 322) then -- Backspace or ESC
+                        cleanupRoll()
+                        break
+                    end
+                end
+            end)
+
+        end
+
+    end)
+end)
+
+exports('useDeployer', function(data)
+    exports.ox_inventory:useItem(data, function(data)
+
+        if data then
+
+            if cache.vehicle then
+                return lib.notify({
+                    description = 'You cannot deploy in a vehicle.',
+                    type = 'error'
+                })
+            end
+    
+            local playerPed = PlayerPedId()
+            local playerCoords = GetEntityCoords(playerPed)
+            local playerHeading = GetEntityHeading(playerPed) - 90.0
+            
+            -- Calculate position in front of player
+            local forwardVector = GetEntityForwardVector(playerPed)
+            local deployCoords = vector3(
+                playerCoords.x + forwardVector.x * 1.0,
+                playerCoords.y + forwardVector.y * 1.0,
+                playerCoords.z
+            )
+            
+            -- Start animation
+            lib.requestAnimDict('amb@world_human_gardener_plant@male@base')
+            TaskPlayAnim(playerPed, 'amb@world_human_gardener_plant@male@base', 'base', 8.0, 8.0, -1, 1, 0, false, false, false)
+            
+            -- Show progress bar
+            if lib.progressBar({
+                duration = 3000,
+                label = 'Dropping Spike Deployer...',
+                useWhileDead = false,
+                allowCuffed = false,
+                allowSwimming = false,
+                canCancel = true,
+                disable = {
+                    car = true,
+                    move = true,
+                    combat = true
+                }
+            }) then
+                -- Progress completed successfully
+                ClearPedTasks(playerPed)
+                TriggerServerEvent('spikes:server:deploySpikes', deployCoords, playerHeading)
+            else
+                -- Progress was cancelled
+                ClearPedTasks(playerPed)
+            end
+
+        end
+
+    end)
+end)
+
+exports('useRemote', function(data)
+    exports.ox_inventory:useItem(data, function(data)
+
+        if data then
+
+            print('OK')
+            lib.print.info(data)
+    
+            -- Check if the remote has a frequency set
+            if not data.metadata or not data.metadata?.frequency then
+                return lib.notify({
+                    description = 'Remote is not tuned to a frequency.',
+                    type = 'error'
+                })
+            end
+            
+            local frequency = data.metadata.frequency
+            
+            -- Look for a deployer with matching frequency
+            local foundDeployer = false
+            for spikeId, spikeData in pairs(deployedSpikes) do
+                if spikeData.frequency == frequency then
+                    foundDeployer = true
+                    -- Trigger server event to deploy the spikes from this deployer
+                    TriggerServerEvent('spikes:server:remoteDeploySpikes', spikeId)
                     break
                 end
             end
-        end)
+            
+            if not foundDeployer then
+                lib.notify({
+                    description = 'No deployer found on frequency ' .. frequency .. ' MHz.',
+                    type = 'error'
+                })
+            end
+
+        end
+
+
     end)
 end)
 
-exports('useDeployer', function(data, slot)
-    exports.ox_inventory:useItem(data, function(data)
+exports('tuneFrequency', function(data)
 
-        if cache.vehicle then
-            return lib.notify({
-                description = 'You cannot deploy in a vehicle.',
-                type = 'error'
+    exports.ox_inventory:useItem(data, function(data)
+        if data then
+
+            print('OK')
+            lib.print.info(data)
+
+            -- Show input dialog to tune the frequency
+            local input = lib.inputDialog('Tune Remote Frequency', {
+                {type = 'number', label = 'Frequency (MHz)', description = 'Enter frequency between 100-999', default = 100, min = 100, max = 999}
+            })
+            
+            if not input or not input[1] then return end
+            
+            local frequency = math.floor(input[1])
+            
+            -- Update the metadata on the server
+            TriggerServerEvent('spikes:server:tuneRemoteFrequency', data.slot, frequency)
+            
+            lib.notify({
+                description = 'Remote tuned to ' .. frequency .. ' MHz',
+                type = 'success'
             })
         end
-
-        local playerPed = PlayerPedId()
-        local playerCoords = GetEntityCoords(playerPed)
-        local playerHeading = GetEntityHeading(playerPed) - 90.0
-        
-        -- Calculate position in front of player
-        local forwardVector = GetEntityForwardVector(playerPed)
-        local deployCoords = vector3(
-            playerCoords.x + forwardVector.x * 1.0,
-            playerCoords.y + forwardVector.y * 1.0,
-            playerCoords.z
-        )
-        
-        -- Start animation
-        lib.requestAnimDict('amb@world_human_gardener_plant@male@base')
-        TaskPlayAnim(playerPed, 'amb@world_human_gardener_plant@male@base', 'base', 8.0, 8.0, -1, 1, 0, false, false, false)
-        
-        -- Show progress bar
-        if lib.progressBar({
-            duration = 3000,
-            label = 'Dropping Spike Deployer...',
-            useWhileDead = false,
-            allowCuffed = false,
-            allowSwimming = false,
-            canCancel = true,
-            disable = {
-                car = true,
-                move = true,
-                combat = true
-            }
-        }) then
-            -- Progress completed successfully
-            ClearPedTasks(playerPed)
-            TriggerServerEvent('spikes:server:deploySpikes', deployCoords, playerHeading)
-        else
-            -- Progress was cancelled
-            ClearPedTasks(playerPed)
-        end
     end)
-end)
-
-exports('useRemote', function(data, slot)
-
-    exports.ox_inventory:useItem(data, function(data)
-        print('Using Remote')
-    end)
-
 end)
 
 -- 
 --  HANDLERS
 --
+
+exports.ox_inventory:displayMetadata({
+    frequency = 'Frequency',
+})
 
 AddEventHandler('onResourceStop', function(resource)
     if GetCurrentResourceName() ~= resource then return end
