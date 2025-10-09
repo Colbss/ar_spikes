@@ -1,6 +1,7 @@
 return {
 
-    remote = {  -- Remote Deployer
+    deployer = {  -- Spike Deployer
+        prop = 'spike_deployer', -- Prop model for deployer
         max = 2, -- Max per player
         frequency = { -- Frequency range for remote
             min = 100,
@@ -9,6 +10,7 @@ return {
     },
 
     roll = { -- Spike Strip Roll
+        prop = 'stinger_roll', -- Prop model for roll
         max = 2, -- Max per player
     },
 
