@@ -2,6 +2,9 @@ local config = require 'config'
 
 -- Table to store deployed spikes
 local deployedSpikes = {}
+local isCarryingRoll = false
+local rollProp = nil
+local rollStateBag = nil
 
 --
 --  FUNCTIONS
@@ -16,6 +19,20 @@ local function cleanupAllSpikes()
         end
     end
     deployedSpikes = {}
+end
+
+local function cleanupRoll()
+    if rollProp and DoesEntityExist(rollProp) then
+        DeleteEntity(rollProp)
+        rollProp = nil
+    end
+    if rollStateBag then
+        rollStateBag:set('spikestripCarrying', false, true)
+        rollStateBag = nil
+    end
+    isCarryingRoll = false
+    ClearPedTasks(PlayerPedId())
+    lib.hideTextUI()
 end
 
 -- 
@@ -109,16 +126,110 @@ RegisterNetEvent('spikes:client:cleanupPlayerSpikes', function(serverId)
     end
 end)
 
+-- Statebag handler for roll carrying
+AddStateBagChangeHandler('spikestripCarrying', nil, function(bagName, key, value, reserved, replicated)
+    if replicated then return end
+    
+    local playerId = GetPlayerFromStateBagName(bagName)
+    if playerId == -1 then return end
+    
+    local ped = GetPlayerPed(playerId)
+    if not DoesEntityExist(ped) then return end
+    
+    if value then
+        -- Player started carrying roll - attach prop for all players (including self)
+        local rollModel = GetHashKey(config.roll.prop)
+        lib.requestModel(rollModel)
+        
+        local prop = CreateObject(rollModel, 0, 0, 0, false, false, false)
+        AttachEntityToEntity(prop, ped, GetPedBoneIndex(ped, config.roll.anim.bone), 
+            config.roll.anim.offset.x, config.roll.anim.offset.y, config.roll.anim.offset.z,
+            config.roll.anim.rotation.x, config.roll.anim.rotation.y, config.roll.anim.rotation.z,
+            true, true, false, true, 1, true)
+        
+        -- Store for cleanup
+        if playerId == PlayerId() then
+            rollProp = prop
+        else
+            Entity(ped).state.rollProp = prop
+        end
+    else
+        -- Player stopped carrying roll
+        if playerId == PlayerId() then
+            if rollProp and DoesEntityExist(rollProp) then
+                DeleteEntity(rollProp)
+                rollProp = nil
+            end
+        else
+            local prop = Entity(ped).state.rollProp
+            if prop and DoesEntityExist(prop) then
+                DeleteEntity(prop)
+            end
+            Entity(ped).state.rollProp = nil
+        end
+    end
+end)
+
 --
 --  EXPORTS
 --
 
 exports('useRoll', function(data, slot)
-
     exports.ox_inventory:useItem(data, function(data)
-        print('Using Roll')
+        if isCarryingRoll then
+            return lib.notify({
+                description = 'You are already carrying a spike roll.',
+                type = 'error'
+            })
+        end
+        
+        if cache.vehicle then
+            return lib.notify({
+                description = 'You cannot use this in a vehicle.',
+                type = 'error'
+            })
+        end
+        
+        local playerPed = PlayerPedId()
+        
+        -- Load animation
+        lib.requestAnimDict(config.roll.anim.dict)
+        
+        -- Start animation (upper body only)
+        TaskPlayAnim(playerPed, config.roll.anim.dict, config.roll.anim.name, 8.0, 8.0, -1, 49, 0, false, false, false)
+        
+        -- Set state
+        isCarryingRoll = true
+        rollStateBag = LocalPlayer.state
+        rollStateBag:set('spikestripCarrying', true, true)
+        
+        -- Show text UI
+        lib.showTextUI('Deploying spikes - [BACKSPACE] or [ESC] to cancel')
+        
+        -- Watch for vehicle entry
+        lib.onCache('vehicle', function(vehicle)
+            if isCarryingRoll and vehicle then
+                cleanupRoll()
+                lib.notify({
+                    description = 'Spike roll placement cancelled - entered vehicle.',
+                    type = 'error'
+                })
+            end
+        end)
+        
+        -- Handle input for cancellation
+        CreateThread(function()
+            while isCarryingRoll do
+                Wait(0)
+                
+                -- Check for cancel keys
+                if IsControlJustPressed(0, 177) or IsControlJustPressed(0, 322) then -- Backspace or ESC
+                    cleanupRoll()
+                    break
+                end
+            end
+        end)
     end)
-
 end)
 
 exports('useDeployer', function(data, slot)
@@ -186,6 +297,23 @@ end)
 AddEventHandler('onResourceStop', function(resource)
     if GetCurrentResourceName() ~= resource then return end
 
+    -- Clean up roll if carrying
+    if isCarryingRoll then
+        cleanupRoll()
+    end
+    
 	-- Clean up all spikes
 	cleanupAllSpikes()
+end)
+
+AddEventHandler('onResourceStart', function(resource)
+    if GetCurrentResourceName() ~= resource then return end
+    
+    -- Clean up any existing spikes on restart
+    cleanupAllSpikes()
+    
+    -- Clean up roll state
+    if isCarryingRoll then
+        cleanupRoll()
+    end
 end)
