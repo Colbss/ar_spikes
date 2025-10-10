@@ -31,7 +31,7 @@ local function cleanupRoll()
         rollStateBag = nil
     end
     isCarryingRoll = false
-    ClearPedTasks(PlayerPedId())
+    ClearPedTasks(cache.ped)
     lib.hideTextUI()
 end
 
@@ -133,8 +133,8 @@ AddStateBagChangeHandler('spikestripCarrying', nil, function(bagName, key, value
     local playerId = GetPlayerFromStateBagName(bagName)
     if playerId == -1 then return end
     
-    local ped = GetPlayerPed(playerId)
-    if not DoesEntityExist(ped) then return end
+    local targetPed = GetPlayerPed(playerId)
+    if not DoesEntityExist(targetPed) then return end
     
     if value then
         -- Player started carrying roll - attach prop for all players (including self)
@@ -142,30 +142,30 @@ AddStateBagChangeHandler('spikestripCarrying', nil, function(bagName, key, value
         lib.requestModel(rollModel)
         
         local prop = CreateObject(rollModel, 0, 0, 0, false, false, false)
-        AttachEntityToEntity(prop, ped, GetPedBoneIndex(ped, config.roll.anim.bone), 
+        AttachEntityToEntity(prop, targetPed, GetPedBoneIndex(targetPed, config.roll.anim.bone), 
             config.roll.anim.offset.x, config.roll.anim.offset.y, config.roll.anim.offset.z,
             config.roll.anim.rotation.x, config.roll.anim.rotation.y, config.roll.anim.rotation.z,
             true, true, false, true, 1, true)
         
         -- Store for cleanup
-        if playerId == PlayerId() then
+        if playerId == cache.playerId then
             rollProp = prop
         else
-            Entity(ped).state.rollProp = prop
+            Entity(targetPed).state.rollProp = prop
         end
     else
         -- Player stopped carrying roll
-        if playerId == PlayerId() then
+        if playerId == cache.playerId then
             if rollProp and DoesEntityExist(rollProp) then
                 DeleteEntity(rollProp)
                 rollProp = nil
             end
         else
-            local prop = Entity(ped).state.rollProp
+            local prop = Entity(targetPed).state.rollProp
             if prop and DoesEntityExist(prop) then
                 DeleteEntity(prop)
             end
-            Entity(ped).state.rollProp = nil
+            Entity(targetPed).state.rollProp = nil
         end
     end
 end)
@@ -193,13 +193,11 @@ exports('useRoll', function(data, slot)
                 })
             end
             
-            local playerPed = PlayerPedId()
-            
             -- Load animation
             lib.requestAnimDict(config.roll.anim.dict)
             
             -- Start animation (upper body only)
-            TaskPlayAnim(playerPed, config.roll.anim.dict, config.roll.anim.name, 8.0, 8.0, -1, 49, 0, false, false, false)
+            TaskPlayAnim(cache.ped, config.roll.anim.dict, config.roll.anim.name, 8.0, 8.0, -1, 49, 0, false, false, false)
             
             -- Set state
             isCarryingRoll = true
@@ -250,12 +248,11 @@ exports('useDeployer', function(data)
                 })
             end
     
-            local playerPed = PlayerPedId()
-            local playerCoords = GetEntityCoords(playerPed)
-            local playerHeading = GetEntityHeading(playerPed) - 90.0
+            local playerCoords = GetEntityCoords(cache.ped)
+            local playerHeading = GetEntityHeading(cache.ped) - 90.0
             
             -- Calculate position in front of player
-            local forwardVector = GetEntityForwardVector(playerPed)
+            local forwardVector = GetEntityForwardVector(cache.ped)
             local deployCoords = vector3(
                 playerCoords.x + forwardVector.x * 1.0,
                 playerCoords.y + forwardVector.y * 1.0,
@@ -263,8 +260,8 @@ exports('useDeployer', function(data)
             )
             
             -- Start animation
-            lib.requestAnimDict('amb@world_human_gardener_plant@male@base')
-            TaskPlayAnim(playerPed, 'amb@world_human_gardener_plant@male@base', 'base', 8.0, 8.0, -1, 1, 0, false, false, false)
+            lib.requestAnimDict('mp_weapons_deal_sting')
+            TaskPlayAnim(cache.ped, 'mp_weapons_deal_sting', 'crackhead_bag_loop', 8.0, 8.0, -1, 1, 0, false, false, false)
             
             -- Show progress bar
             if lib.progressBar({
@@ -281,11 +278,11 @@ exports('useDeployer', function(data)
                 }
             }) then
                 -- Progress completed successfully
-                ClearPedTasks(playerPed)
-                TriggerServerEvent('spikes:server:deploySpikes', deployCoords, playerHeading)
+                ClearPedTasks(cache.ped)
+                TriggerServerEvent('spikes:server:deployDeployer', deployCoords, playerHeading)
             else
                 -- Progress was cancelled
-                ClearPedTasks(playerPed)
+                ClearPedTasks(cache.ped)
             end
 
         end
@@ -317,7 +314,7 @@ exports('useRemote', function(data)
                 if spikeData.frequency == frequency then
                     foundDeployer = true
                     -- Trigger server event to deploy the spikes from this deployer
-                    TriggerServerEvent('spikes:server:remoteDeploySpikes', spikeId)
+                    TriggerServerEvent('spikes:server:deployRemoteSpikes', spikeId)
                     break
                 end
             end

@@ -32,7 +32,7 @@ end
 -- EVENTS
 --
 
-RegisterNetEvent('spikes:server:deploySpikes', function(coords, heading)
+RegisterNetEvent('spikes:server:deployDeployer', function(coords, heading)
     local src = source
     local Player = exports.qbx_core:GetPlayer(src)
     
@@ -141,7 +141,7 @@ RegisterNetEvent('spikes:server:tuneRemoteFrequency', function(slot, frequency)
 end)
 
 -- Server-side event to deploy spikes remotely
-RegisterNetEvent('spikes:server:remoteDeploySpikes', function(spikeId)
+RegisterNetEvent('spikes:server:deployRemoteSpikes', function(spikeId)
     local src = source
     
     -- Get the spike data from your server-side storage
