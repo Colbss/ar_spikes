@@ -2,9 +2,12 @@ local config = require 'config'
 
 -- Table to store deployed spikes
 local deployedSpikes = {}
+local deployedSpikeStrips = {} -- For standalone spike strips
 local isCarryingRoll = false
 local rollProp = nil
 local rollStateBag = nil
+local isPlacingSpikes = false
+local spikeLength = 1
 
 --
 --  FUNCTIONS
@@ -19,6 +22,16 @@ local function cleanupAllSpikes()
         end
     end
     deployedSpikes = {}
+    
+    -- Clean up spike strips
+    for stripId, stripData in pairs(deployedSpikeStrips) do
+        for _, spikeData in pairs(stripData.spikes) do
+            if DoesEntityExist(spikeData.entity) then
+                DeleteEntity(spikeData.entity)
+            end
+        end
+    end
+    deployedSpikeStrips = {}
 end
 
 local function cleanupRoll()
@@ -31,8 +44,119 @@ local function cleanupRoll()
         rollStateBag = nil
     end
     isCarryingRoll = false
-    ClearPedTasks(cache.ped)
+    isPlacingSpikes = false
+    ClearPedTasks(PlayerPedId())
     lib.hideTextUI()
+end
+
+local function PlayDeployAudio(entity)
+    lib.requestAudioBank("dlc_stinger/stinger")
+	local soundId = GetSoundId()
+	PlaySoundFromEntity(soundId, "deploy_stinger", entity, "stinger", false, 0)
+	ReleaseSoundId(soundId)
+	ReleaseNamedScriptAudioBank("stinger")
+end
+
+local function deploySpikes(x, y, z, h)
+    local spikeModel = 'p_ld_stinger_s'
+    lib.requestModel(spikeModel)
+    lib.requestAnimDict('P_ld_stinger_s')
+    
+    local stinger = CreateObject(spikeModel, x, y, z, true, true, false)
+    SetEntityAsMissionEntity(stinger, true, true)
+    SetEntityHeading(stinger, h)
+    FreezeEntityPosition(stinger, true)
+    PlaceObjectOnGroundProperly(stinger)
+    SetEntityVisible(stinger, false)
+    
+    -- Play deploy animation
+    PlayEntityAnim(stinger, "P_Stinger_S_Deploy", 'P_ld_stinger_s', 1000.0, false, true, 0, 0.0, 0)
+    
+    -- Wait for animation to start
+    while not IsEntityPlayingAnim(stinger, 'P_ld_stinger_s', "P_Stinger_S_Deploy", 3) do
+        Wait(0)
+    end
+    
+    SetEntityAnimSpeed(stinger, 'P_ld_stinger_s', "P_Stinger_S_Deploy", 1.75)
+    PlayDeployAudio(stinger)
+    SetEntityVisible(stinger, true)
+    
+    -- Wait for deploy animation to finish
+    while IsEntityPlayingAnim(stinger, 'P_ld_stinger_s', "P_Stinger_S_Deploy", 3) and 
+          GetEntityAnimCurrentTime(stinger, "p_ld_stinger_s", "P_Stinger_S_Deploy") <= 0.99 do
+        Wait(0)
+    end
+    
+    -- Play idle animation
+    PlayEntityAnim(stinger, "p_stinger_s_idle_deployed", 'P_ld_stinger_s', 1000.0, false, true, 0, 0.99, 0)
+    
+    return stinger
+end
+
+local function getSpikePositions(num, origin, heading)
+    local positions = {}
+    for i = 1, num do
+        local pos = GetOffsetFromCoordAndHeadingInWorldCoords(origin.x, origin.y, origin.z, heading, 0.0, -1.5 + (3.5 * i), 0.15)
+        positions[i] = vector4(pos.x, pos.y, pos.z, heading)
+    end
+    return positions
+end
+
+local function deployStandaloneSpikeStrip()
+    if not isCarryingRoll or not isPlacingSpikes then return end
+    
+    local playerPed = PlayerPedId()
+    local playerCoords = GetEntityCoords(playerPed)
+    local playerHeading = GetEntityHeading(playerPed)
+    
+    -- Start deploy animation
+    lib.requestAnimDict('mp_weapons_deal_sting')
+    TaskPlayAnim(playerPed, 'mp_weapons_deal_sting', 'crackhead_bag_loop', 5.0, 5.0, -1, 49, 1.0, false, false, false)
+    
+    -- Show progress bar
+    if lib.progressBar({
+        duration = 2000,
+        label = 'Deploying spike strips...',
+        useWhileDead = false,
+        canCancel = true,
+        disable = {
+            car = true,
+            move = true,
+            combat = true
+        }
+    }) then
+        -- Get spike positions
+        local positions = getSpikePositions(spikeLength, playerCoords, playerHeading)
+        local tempProps = {}
+        
+        -- Deploy each spike strip
+        for i = 1, spikeLength do
+            local pos = positions[i]
+            tempProps[i] = deploySpikes(pos.x, pos.y, pos.z, pos.w)
+        end
+        
+        -- Send to server to create permanent spikes
+        TriggerServerEvent('spikes:server:createSpikeStrip', positions)
+        
+        -- Clean up temporary props
+        Wait(1000) -- Let players see the deployment
+        for i = 1, spikeLength do
+            if DoesEntityExist(tempProps[i]) then
+                DeleteEntity(tempProps[i])
+            end
+        end
+        
+        -- Clean up
+        cleanupRoll()
+        
+        lib.notify({
+            description = 'Spike strips deployed successfully',
+            type = 'success'
+        })
+    else
+        -- Progress cancelled
+        ClearPedTasks(playerPed)
+    end
 end
 
 -- 
@@ -100,6 +224,33 @@ RegisterNetEvent('spikes:client:createSpikeProp', function(coords, heading, spik
     })
 end)
 
+-- Event to create standalone spike strip
+RegisterNetEvent('spikes:client:createSpikeStrip', function(stripId, positions, ownerServerId)
+    local spikes = {}
+    local spikeModel = 'p_ld_stinger_s'
+    lib.requestModel(spikeModel)
+    
+    for i, pos in ipairs(positions) do
+        local spike = CreateObject(spikeModel, pos.x, pos.y, pos.z, false, false, false)
+        SetEntityHeading(spike, pos.w)
+        PlaceObjectOnGroundProperly(spike)
+        FreezeEntityPosition(spike, true)
+        
+        -- Set to deployed state
+        PlayEntityAnim(spike, "p_stinger_s_idle_deployed", 'P_ld_stinger_s', 1000.0, false, true, 0, 0.99, 0)
+        
+        spikes[i] = {
+            entity = spike,
+            coords = pos
+        }
+    end
+    
+    deployedSpikeStrips[stripId] = {
+        spikes = spikes,
+        owner = ownerServerId
+    }
+end)
+
 -- Event to remove specific spike
 RegisterNetEvent('spikes:client:removeSpike', function(spikeId)
     if deployedSpikes[spikeId] then
@@ -109,6 +260,18 @@ RegisterNetEvent('spikes:client:removeSpike', function(spikeId)
             DeleteEntity(deployedSpikes[spikeId].entity)
         end
         deployedSpikes[spikeId] = nil
+    end
+end)
+
+-- Event to remove spike strip
+RegisterNetEvent('spikes:client:removeSpikeStrip', function(stripId)
+    if deployedSpikeStrips[stripId] then
+        for _, spikeData in pairs(deployedSpikeStrips[stripId].spikes) do
+            if DoesEntityExist(spikeData.entity) then
+                DeleteEntity(spikeData.entity)
+            end
+        end
+        deployedSpikeStrips[stripId] = nil
     end
 end)
 
@@ -133,8 +296,8 @@ AddStateBagChangeHandler('spikestripCarrying', nil, function(bagName, key, value
     local playerId = GetPlayerFromStateBagName(bagName)
     if playerId == -1 then return end
     
-    local targetPed = GetPlayerPed(playerId)
-    if not DoesEntityExist(targetPed) then return end
+    local ped = GetPlayerPed(playerId)
+    if not DoesEntityExist(ped) then return end
     
     if value then
         -- Player started carrying roll - attach prop for all players (including self)
@@ -142,30 +305,30 @@ AddStateBagChangeHandler('spikestripCarrying', nil, function(bagName, key, value
         lib.requestModel(rollModel)
         
         local prop = CreateObject(rollModel, 0, 0, 0, false, false, false)
-        AttachEntityToEntity(prop, targetPed, GetPedBoneIndex(targetPed, config.roll.anim.bone), 
+        AttachEntityToEntity(prop, ped, GetPedBoneIndex(ped, config.roll.anim.bone), 
             config.roll.anim.offset.x, config.roll.anim.offset.y, config.roll.anim.offset.z,
             config.roll.anim.rotation.x, config.roll.anim.rotation.y, config.roll.anim.rotation.z,
             true, true, false, true, 1, true)
         
         -- Store for cleanup
-        if playerId == cache.playerId then
+        if playerId == PlayerId() then
             rollProp = prop
         else
-            Entity(targetPed).state.rollProp = prop
+            Entity(ped).state.rollProp = prop
         end
     else
         -- Player stopped carrying roll
-        if playerId == cache.playerId then
+        if playerId == PlayerId() then
             if rollProp and DoesEntityExist(rollProp) then
                 DeleteEntity(rollProp)
                 rollProp = nil
             end
         else
-            local prop = Entity(targetPed).state.rollProp
+            local prop = Entity(ped).state.rollProp
             if prop and DoesEntityExist(prop) then
                 DeleteEntity(prop)
             end
-            Entity(targetPed).state.rollProp = nil
+            Entity(ped).state.rollProp = nil
         end
     end
 end)
@@ -176,9 +339,7 @@ end)
 
 exports('useRoll', function(data, slot)
     exports.ox_inventory:useItem(data, function(data)
-
         if data then
-
             if isCarryingRoll then
                 return lib.notify({
                     description = 'You are already carrying a spike roll.',
@@ -193,19 +354,25 @@ exports('useRoll', function(data, slot)
                 })
             end
             
+            local playerPed = PlayerPedId()
+            
             -- Load animation
             lib.requestAnimDict(config.roll.anim.dict)
             
             -- Start animation (upper body only)
-            TaskPlayAnim(cache.ped, config.roll.anim.dict, config.roll.anim.name, 8.0, 8.0, -1, 49, 0, false, false, false)
+            TaskPlayAnim(playerPed, config.roll.anim.dict, config.roll.anim.name, 8.0, 8.0, -1, 49, 0, false, false, false)
             
             -- Set state
             isCarryingRoll = true
+            isPlacingSpikes = true
             rollStateBag = LocalPlayer.state
             rollStateBag:set('spikestripCarrying', true, true)
             
-            -- Show text UI
-            lib.showTextUI('Deploying spikes - [BACKSPACE] or [ESC] to cancel')
+            -- Show initial text UI
+            lib.showTextUI(string.format(
+                'Current Length: %d\n[UP] Increase Length\n[DOWN] Decrease Length\n[E] Deploy Spikes\n[BACKSPACE/ESC] Cancel',
+                spikeLength
+            ))
             
             -- Watch for vehicle entry
             lib.onCache('vehicle', function(vehicle)
@@ -218,21 +385,47 @@ exports('useRoll', function(data, slot)
                 end
             end)
             
-            -- Handle input for cancellation
+            -- Handle input for spike placement
             CreateThread(function()
-                while isCarryingRoll do
+                while isCarryingRoll and isPlacingSpikes do
                     Wait(0)
                     
-                    -- Check for cancel keys
+                    -- Increase length
+                    if IsControlJustPressed(0, 172) then -- UP Arrow
+                        if spikeLength < 4 then
+                            spikeLength = spikeLength + 1
+                            lib.showTextUI(string.format(
+                                'Current Length: %d\n[UP] Increase Length\n[DOWN] Decrease Length\n[E] Deploy Spikes\n[BACKSPACE/ESC] Cancel',
+                                spikeLength
+                            ))
+                        end
+                    end
+                    
+                    -- Decrease length
+                    if IsControlJustPressed(0, 173) then -- DOWN Arrow
+                        if spikeLength > 1 then
+                            spikeLength = spikeLength - 1
+                            lib.showTextUI(string.format(
+                                'Current Length: %d\n[UP] Increase Length\n[DOWN] Decrease Length\n[E] Deploy Spikes\n[BACKSPACE/ESC] Cancel',
+                                spikeLength
+                            ))
+                        end
+                    end
+                    
+                    -- Deploy spikes
+                    if IsControlJustPressed(0, 38) then -- E
+                        deployStandaloneSpikeStrip()
+                        break
+                    end
+                    
+                    -- Cancel
                     if IsControlJustPressed(0, 177) or IsControlJustPressed(0, 322) then -- Backspace or ESC
                         cleanupRoll()
                         break
                     end
                 end
             end)
-
         end
-
     end)
 end)
 
@@ -314,7 +507,7 @@ exports('useRemote', function(data)
                 if spikeData.frequency == frequency then
                     foundDeployer = true
                     -- Trigger server event to deploy the spikes from this deployer
-                    TriggerServerEvent('spikes:server:deployRemoteSpikes', spikeId)
+                    TriggerServerEvent('spikes:server:remoteDeploySpikes', spikeId)
                     break
                 end
             end

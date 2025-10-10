@@ -2,7 +2,9 @@ local config = require 'config'
 
 -- Table to store deployed spikes
 local deployedSpikes = {}
+local deployedSpikeStrips = {} -- For standalone spike strips
 local spikeIdCounter = 0
+local stripIdCounter = 0
 
 --
 -- FUNCTIONS
@@ -11,6 +13,11 @@ local spikeIdCounter = 0
 local function generateSpikeId()
     spikeIdCounter = spikeIdCounter + 1
     return spikeIdCounter
+end
+
+local function generateStripId()
+    stripIdCounter = stripIdCounter + 1
+    return stripIdCounter
 end
 
 local function generateFrequency()
@@ -26,13 +33,21 @@ local function removePlayerSpikes(serverId)
             TriggerClientEvent('spikes:client:removeSpike', -1, spikeId)
         end
     end
+
+    -- Clean up spike strips
+    for stripId, stripData in pairs(deployedSpikeStrips) do
+        if stripData.owner == serverId then
+            deployedSpikeStrips[stripId] = nil
+            TriggerClientEvent('spikes:client:removeSpikeStrip', -1, stripId)
+        end
+    end
 end
 
 --
 -- EVENTS
 --
 
-RegisterNetEvent('spikes:server:deployDeployer', function(coords, heading)
+RegisterNetEvent('spikes:server:deploySpikes', function(coords, heading)
     local src = source
     local Player = exports.qbx_core:GetPlayer(src)
     
@@ -72,6 +87,46 @@ RegisterNetEvent('spikes:server:deployDeployer', function(coords, heading)
         TriggerClientEvent('ox_lib:notify', src, {
             title = 'Spike Strip',
             description = 'You don\'t have a spike deployer',
+            type = 'error'
+        })
+    end
+end)
+
+RegisterNetEvent('spikes:server:createSpikeStrip', function(positions)
+    local src = source
+    local Player = exports.qbx_core:GetPlayer(src)
+    
+    if not Player then return end
+    
+    -- Verify player has the spike roll item
+    local hasItem = exports.ox_inventory:GetItem(src, 'spike_roll', nil, true)
+    
+    if hasItem and hasItem >= 1 then
+        -- Remove one spike roll from inventory
+        exports.ox_inventory:RemoveItem(src, 'spike_roll', 1)
+        
+        -- Generate unique strip ID
+        local stripId = generateStripId()
+        
+        -- Store spike strip data
+        deployedSpikeStrips[stripId] = {
+            owner = src,
+            positions = positions,
+            timestamp = os.time()
+        }
+        
+        -- Broadcast to all players to create the spike strip
+        TriggerClientEvent('spikes:client:createSpikeStrip', -1, stripId, positions, src)
+        
+        lib.notify(src, {
+            title = 'Spike Strips',
+            description = 'Spike strips deployed successfully',
+            type = 'success'
+        })
+    else
+        lib.notify(src, {
+            title = 'Spike Strips',
+            description = 'You don\'t have a spike roll',
             type = 'error'
         })
     end
@@ -141,7 +196,7 @@ RegisterNetEvent('spikes:server:tuneRemoteFrequency', function(slot, frequency)
 end)
 
 -- Server-side event to deploy spikes remotely
-RegisterNetEvent('spikes:server:deployRemoteSpikes', function(spikeId)
+RegisterNetEvent('spikes:server:remoteDeploySpikes', function(spikeId)
     local src = source
     
     -- Get the spike data from your server-side storage
