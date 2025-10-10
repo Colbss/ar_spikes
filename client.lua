@@ -1,37 +1,52 @@
 local config = require 'config'
 
--- Table to store deployed spikes
-local deployedSpikes = {}
-local deployedSpikeStrips = {} -- For standalone spike strips
+-- Unified table for all spike systems
+local deployedSpikes = {} -- Now stores both types
 local isCarryingRoll = false
 local rollProp = nil
 local rollStateBag = nil
 local isPlacingSpikes = false
 local spikeLength = 1
 
---
---  FUNCTIONS
---
+-- Spike types and states
+local SPIKE_TYPES = {
+    STANDALONE = 'standalone',
+    REMOTE_DEPLOYER = 'remote_deployer'
+}
+
+local SPIKE_STATES = {
+    PLACED = 'placed',      -- For remote deployers (not deployed)
+    DEPLOYED = 'deployed'   -- For both types when spikes are active
+}
 
 local function cleanupAllSpikes()
     for spikeId, spikeData in pairs(deployedSpikes) do
-        if DoesEntityExist(spikeData.entity) then
-            -- Remove target before deleting entity
-            exports.ox_target:removeLocalEntity(spikeData.entity)
-            DeleteEntity(spikeData.entity)
-        end
-    end
-    deployedSpikes = {}
-    
-    -- Clean up spike strips
-    for stripId, stripData in pairs(deployedSpikeStrips) do
-        for _, spikeData in pairs(stripData.spikes) do
-            if DoesEntityExist(spikeData.entity) then
-                DeleteEntity(spikeData.entity)
+        if spikeData.type == SPIKE_TYPES.REMOTE_DEPLOYER then
+            -- Remote deployer cleanup
+            if DoesEntityExist(spikeData.deployer.entity) then
+                exports.ox_target:removeLocalEntity(spikeData.deployer.entity)
+                DeleteEntity(spikeData.deployer.entity)
+            end
+            -- Clean up deployed spikes if any
+            if spikeData.spikes then
+                for _, spike in pairs(spikeData.spikes) do
+                    if DoesEntityExist(spike.entity) then
+                        DeleteEntity(spike.entity)
+                    end
+                end
+            end
+        elseif spikeData.type == SPIKE_TYPES.STANDALONE then
+            -- Standalone spike strip cleanup
+            if spikeData.spikes then
+                for _, spike in pairs(spikeData.spikes) do
+                    if DoesEntityExist(spike.entity) then
+                        DeleteEntity(spike.entity)
+                    end
+                end
             end
         end
     end
-    deployedSpikeStrips = {}
+    deployedSpikes = {}
 end
 
 local function cleanupRoll()
@@ -45,7 +60,7 @@ local function cleanupRoll()
     end
     isCarryingRoll = false
     isPlacingSpikes = false
-    ClearPedTasks(PlayerPedId())
+    ClearPedTasks(cache.ped)
     lib.hideTextUI()
 end
 
@@ -102,16 +117,38 @@ local function getSpikePositions(num, origin, heading)
     return positions
 end
 
+local function createSpikeStrip(positions, parentId)
+    local spikes = {}
+    local spikeModel = 'p_ld_stinger_s'
+    lib.requestModel(spikeModel)
+    
+    for i, pos in ipairs(positions) do
+        local spike = CreateObject(spikeModel, pos.x, pos.y, pos.z, false, false, false)
+        SetEntityHeading(spike, pos.w)
+        PlaceObjectOnGroundProperly(spike)
+        FreezeEntityPosition(spike, true)
+        
+        -- Set to deployed state
+        PlayEntityAnim(spike, "p_stinger_s_idle_deployed", 'P_ld_stinger_s', 1000.0, false, true, 0, 0.99, 0)
+        
+        spikes[i] = {
+            entity = spike,
+            coords = pos
+        }
+    end
+    
+    return spikes
+end
+
 local function deployStandaloneSpikeStrip()
     if not isCarryingRoll or not isPlacingSpikes then return end
     
-    local playerPed = PlayerPedId()
-    local playerCoords = GetEntityCoords(playerPed)
-    local playerHeading = GetEntityHeading(playerPed)
+    local playerCoords = GetEntityCoords(cache.ped)
+    local playerHeading = GetEntityHeading(cache.ped)
     
     -- Start deploy animation
     lib.requestAnimDict('mp_weapons_deal_sting')
-    TaskPlayAnim(playerPed, 'mp_weapons_deal_sting', 'crackhead_bag_loop', 5.0, 5.0, -1, 49, 1.0, false, false, false)
+    TaskPlayAnim(cache.ped, 'mp_weapons_deal_sting', 'crackhead_bag_loop', 5.0, 5.0, -1, 49, 1.0, false, false, false)
     
     -- Show progress bar
     if lib.progressBar({
@@ -136,7 +173,11 @@ local function deployStandaloneSpikeStrip()
         end
         
         -- Send to server to create permanent spikes
-        TriggerServerEvent('spikes:server:createSpikeStrip', positions)
+        TriggerServerEvent('spikes:server:createSpike', {
+            type = SPIKE_TYPES.STANDALONE,
+            positions = positions,
+            length = spikeLength
+        })
         
         -- Clean up temporary props
         Wait(1000) -- Let players see the deployment
@@ -155,139 +196,53 @@ local function deployStandaloneSpikeStrip()
         })
     else
         -- Progress cancelled
-        ClearPedTasks(playerPed)
+        ClearPedTasks(cache.ped)
     end
 end
 
--- 
---  THREADS
---
-
-
-
---
--- EVENTS
---
-
-RegisterNetEvent('QBCore:Client:OnPlayerLoaded', function()
-	Wait(2000)
+local function deployRemoteSpikes(spikeId)
+    -- Verify with server that deployment is allowed
+    local result = lib.callback.await('spikes:server:verifyRemoteDeployment', false, spikeId)
     
-    -- Get active spikes
-
-end)
-
--- Add event to create spike prop for all clients
-RegisterNetEvent('spikes:client:createSpikeProp', function(coords, heading, spikeId, ownerServerId, frequency)
-    local spikeModel = GetHashKey(config.deployer.prop)
-    
-    lib.requestModel(spikeModel)
-    
-    local spike = CreateObject(spikeModel, coords.x, coords.y, coords.z, false, false, false)
-    SetEntityHeading(spike, heading)
-    PlaceObjectOnGroundProperly(spike)
-    FreezeEntityPosition(spike, true)
-    
-    -- Store spike for cleanup
-    deployedSpikes[spikeId] = {
-        entity = spike,
-        coords = coords,
-        heading = heading,
-        owner = ownerServerId,
-        frequency = frequency
-    }
-    
-    -- Add target to the spike
-    exports.ox_target:addLocalEntity(spike, {
-        {
-            name = 'spike_get_frequency',
-            icon = 'fas fa-broadcast-tower',
-            label = 'Get Frequency',
-            onSelect = function()
-                lib.notify({
-                    title = 'Spike Strip Deployer',
-                    description = 'Frequency: ' .. frequency .. ' MHz',
-                    type = 'inform'
-                })
-            end
-        },
-        {
-            name = 'spike_pickup',
-            icon = 'fas fa-hand-paper',
-            label = 'Pick Up Deployer',
-            canInteract = function()
-                return ownerServerId == cache.serverId
-            end,
-            onSelect = function()
-                TriggerServerEvent('spikes:server:pickupSpike', spikeId)
-            end
-        }
-    })
-end)
-
--- Event to create standalone spike strip
-RegisterNetEvent('spikes:client:createSpikeStrip', function(stripId, positions, ownerServerId)
-    local spikes = {}
-    local spikeModel = 'p_ld_stinger_s'
-    lib.requestModel(spikeModel)
-    
-    for i, pos in ipairs(positions) do
-        local spike = CreateObject(spikeModel, pos.x, pos.y, pos.z, false, false, false)
-        SetEntityHeading(spike, pos.w)
-        PlaceObjectOnGroundProperly(spike)
-        FreezeEntityPosition(spike, true)
-        
-        -- Set to deployed state
-        PlayEntityAnim(spike, "p_stinger_s_idle_deployed", 'P_ld_stinger_s', 1000.0, false, true, 0, 0.99, 0)
-        
-        spikes[i] = {
-            entity = spike,
-            coords = pos
-        }
+    if not result.success then
+        return lib.notify({
+            title = 'Spike Strip',
+            description = result.message,
+            type = 'error'
+        })
     end
     
-    deployedSpikeStrips[stripId] = {
-        spikes = spikes,
-        owner = ownerServerId
-    }
-end)
-
--- Event to remove specific spike
-RegisterNetEvent('spikes:client:removeSpike', function(spikeId)
-    if deployedSpikes[spikeId] then
-        if DoesEntityExist(deployedSpikes[spikeId].entity) then
-            -- Remove target before deleting entity
-            exports.ox_target:removeLocalEntity(deployedSpikes[spikeId].entity)
-            DeleteEntity(deployedSpikes[spikeId].entity)
-        end
-        deployedSpikes[spikeId] = nil
+    local deployerData = result.deployerData
+    
+    -- Adjust heading to deploy spikes 90 degrees left of the deployer
+    local spikeHeading = deployerData.heading + 90.0
+    if spikeHeading >= 360.0 then
+        spikeHeading = spikeHeading - 360.0
     end
-end)
-
--- Event to remove spike strip
-RegisterNetEvent('spikes:client:removeSpikeStrip', function(stripId)
-    if deployedSpikeStrips[stripId] then
-        for _, spikeData in pairs(deployedSpikeStrips[stripId].spikes) do
-            if DoesEntityExist(spikeData.entity) then
-                DeleteEntity(spikeData.entity)
-            end
-        end
-        deployedSpikeStrips[stripId] = nil
+    
+    -- Get spike positions relative to deployer (perpendicular to deployer heading)
+    local positions = getSpikePositions(2, deployerData.coords, spikeHeading)
+    local tempProps = {}
+    
+    -- Deploy each spike strip with animation
+    for i = 1, 2 do
+        local pos = positions[i]
+        tempProps[i] = deploySpikes(pos.x, pos.y, pos.z, pos.w)
     end
-end)
-
--- Event to cleanup spikes when player leaves
-RegisterNetEvent('spikes:client:cleanupPlayerSpikes', function(serverId)
-    for spikeId, spikeData in pairs(deployedSpikes) do
-        if spikeData.owner == serverId then
-            if DoesEntityExist(spikeData.entity) then
-                -- Remove target before deleting entity
-                exports.ox_target:removeLocalEntity(spikeData.entity)
-                DeleteEntity(spikeData.entity)
-            end
-            deployedSpikes[spikeId] = nil
+    
+    -- Wait for deployment animation
+    Wait(1000)
+    
+    -- Clean up temporary props
+    for i = 1, 2 do
+        if DoesEntityExist(tempProps[i]) then
+            DeleteEntity(tempProps[i])
         end
     end
-end)
+    
+    -- Update server with new spike positions
+    TriggerServerEvent('spikes:server:updateSpikeState', spikeId, positions)
+end
 
 -- Statebag handler for roll carrying
 AddStateBagChangeHandler('spikestripCarrying', nil, function(bagName, key, value, reserved, replicated)
@@ -296,8 +251,8 @@ AddStateBagChangeHandler('spikestripCarrying', nil, function(bagName, key, value
     local playerId = GetPlayerFromStateBagName(bagName)
     if playerId == -1 then return end
     
-    local ped = GetPlayerPed(playerId)
-    if not DoesEntityExist(ped) then return end
+    local targetPed = GetPlayerPed(playerId)
+    if not DoesEntityExist(targetPed) then return end
     
     if value then
         -- Player started carrying roll - attach prop for all players (including self)
@@ -305,7 +260,7 @@ AddStateBagChangeHandler('spikestripCarrying', nil, function(bagName, key, value
         lib.requestModel(rollModel)
         
         local prop = CreateObject(rollModel, 0, 0, 0, false, false, false)
-        AttachEntityToEntity(prop, ped, GetPedBoneIndex(ped, config.roll.anim.bone), 
+        AttachEntityToEntity(prop, targetPed, GetPedBoneIndex(targetPed, config.roll.anim.bone), 
             config.roll.anim.offset.x, config.roll.anim.offset.y, config.roll.anim.offset.z,
             config.roll.anim.rotation.x, config.roll.anim.rotation.y, config.roll.anim.rotation.z,
             true, true, false, true, 1, true)
@@ -314,7 +269,7 @@ AddStateBagChangeHandler('spikestripCarrying', nil, function(bagName, key, value
         if playerId == PlayerId() then
             rollProp = prop
         else
-            Entity(ped).state.rollProp = prop
+            Entity(targetPed).state.rollProp = prop
         end
     else
         -- Player stopped carrying roll
@@ -324,18 +279,148 @@ AddStateBagChangeHandler('spikestripCarrying', nil, function(bagName, key, value
                 rollProp = nil
             end
         else
-            local prop = Entity(ped).state.rollProp
+            local prop = Entity(targetPed).state.rollProp
             if prop and DoesEntityExist(prop) then
                 DeleteEntity(prop)
             end
-            Entity(ped).state.rollProp = nil
+            Entity(targetPed).state.rollProp = nil
         end
     end
 end)
 
---
---  EXPORTS
---
+-- Unified event to create any spike type
+RegisterNetEvent('spikes:client:createSpike', function(spikeId, spikeData, ownerServerId)
+    if spikeData.type == SPIKE_TYPES.REMOTE_DEPLOYER then
+        -- Create remote deployer prop
+        local deployerModel = GetHashKey(config.deployer.prop)
+        lib.requestModel(deployerModel)
+        
+        local deployer = CreateObject(deployerModel, spikeData.coords.x, spikeData.coords.y, spikeData.coords.z, false, false, false)
+        SetEntityHeading(deployer, spikeData.heading)
+        PlaceObjectOnGroundProperly(deployer)
+        FreezeEntityPosition(deployer, true)
+        
+        -- Store in unified table
+        deployedSpikes[spikeId] = {
+            type = SPIKE_TYPES.REMOTE_DEPLOYER,
+            state = SPIKE_STATES.PLACED,
+            owner = ownerServerId,
+            frequency = spikeData.frequency,
+            deployer = {
+                entity = deployer,
+                coords = spikeData.coords,
+                heading = spikeData.heading
+            },
+            spikes = nil -- No spikes deployed yet
+        }
+        
+        -- Add target to the deployer
+        exports.ox_target:addLocalEntity(deployer, {
+            {
+                name = 'spike_get_frequency',
+                icon = 'fas fa-broadcast-tower',
+                label = 'Get Frequency',
+                onSelect = function()
+                    lib.notify({
+                        title = 'Spike Strip Deployer',
+                        description = 'Frequency: ' .. spikeData.frequency .. ' MHz',
+                        type = 'inform'
+                    })
+                end
+            },
+            {
+                name = 'spike_pickup',
+                icon = 'fas fa-hand-paper',
+                label = 'Pick Up Deployer',
+                canInteract = function()
+                    return ownerServerId == cache.serverId and deployedSpikes[spikeId].state == SPIKE_STATES.PLACED
+                end,
+                onSelect = function()
+                    TriggerServerEvent('spikes:server:pickupSpike', spikeId)
+                end
+            }
+        })
+        
+    elseif spikeData.type == SPIKE_TYPES.STANDALONE then
+        -- Create standalone spike strip
+        local spikes = createSpikeStrip(spikeData.positions, spikeId)
+        
+        -- Store in unified table
+        deployedSpikes[spikeId] = {
+            type = SPIKE_TYPES.STANDALONE,
+            state = SPIKE_STATES.DEPLOYED,
+            owner = ownerServerId,
+            spikes = spikes
+        }
+    end
+end)
+
+-- Event to deploy spikes from a remote deployer
+RegisterNetEvent('spikes:client:deployRemoteSpikes', function(spikeId, positions)
+    local spikeData = deployedSpikes[spikeId]
+    if not spikeData or spikeData.type ~= SPIKE_TYPES.REMOTE_DEPLOYER or spikeData.state ~= SPIKE_STATES.PLACED then
+        return
+    end
+    
+    -- Create the spike strips
+    local spikes = createSpikeStrip(positions, spikeId)
+    
+    -- Update the spike data
+    deployedSpikes[spikeId].spikes = spikes
+    deployedSpikes[spikeId].state = SPIKE_STATES.DEPLOYED
+    
+    -- Update target options (remove pickup since spikes are deployed)
+    if DoesEntityExist(spikeData.deployer.entity) then
+        exports.ox_target:removeLocalEntity(spikeData.deployer.entity)
+        exports.ox_target:addLocalEntity(spikeData.deployer.entity, {
+            {
+                name = 'spike_get_frequency',
+                icon = 'fas fa-broadcast-tower',
+                label = 'Get Frequency',
+                onSelect = function()
+                    lib.notify({
+                        title = 'Spike Strip Deployer',
+                        description = 'Frequency: ' .. spikeData.frequency .. ' MHz',
+                        type = 'inform'
+                    })
+                end
+            }
+        })
+    end
+end)
+
+-- Unified event to remove spikes
+RegisterNetEvent('spikes:client:removeSpike', function(spikeId)
+    local spikeData = deployedSpikes[spikeId]
+    if not spikeData then return end
+    
+    if spikeData.type == SPIKE_TYPES.REMOTE_DEPLOYER then
+        -- Remove deployer prop
+        if DoesEntityExist(spikeData.deployer.entity) then
+            exports.ox_target:removeLocalEntity(spikeData.deployer.entity)
+            DeleteEntity(spikeData.deployer.entity)
+        end
+        -- Remove deployed spikes if any
+        if spikeData.spikes then
+            for _, spike in pairs(spikeData.spikes) do
+                if DoesEntityExist(spike.entity) then
+                    DeleteEntity(spike.entity)
+                end
+            end
+        end
+    elseif spikeData.type == SPIKE_TYPES.STANDALONE then
+        -- Remove standalone spikes
+        if spikeData.spikes then
+            for _, spike in pairs(spikeData.spikes) do
+                if DoesEntityExist(spike.entity) then
+                    DeleteEntity(spike.entity)
+                end
+            end
+        end
+    end
+    
+    deployedSpikes[spikeId] = nil
+end)
 
 exports('useRoll', function(data, slot)
     exports.ox_inventory:useItem(data, function(data)
@@ -354,13 +439,11 @@ exports('useRoll', function(data, slot)
                 })
             end
             
-            local playerPed = PlayerPedId()
-            
             -- Load animation
             lib.requestAnimDict(config.roll.anim.dict)
             
             -- Start animation (upper body only)
-            TaskPlayAnim(playerPed, config.roll.anim.dict, config.roll.anim.name, 8.0, 8.0, -1, 49, 0, false, false, false)
+            TaskPlayAnim(cache.ped, config.roll.anim.dict, config.roll.anim.name, 8.0, 8.0, -1, 49, 0, false, false, false)
             
             -- Set state
             isCarryingRoll = true
@@ -431,9 +514,7 @@ end)
 
 exports('useDeployer', function(data)
     exports.ox_inventory:useItem(data, function(data)
-
         if data then
-
             if cache.vehicle then
                 return lib.notify({
                     description = 'You cannot deploy in a vehicle.',
@@ -472,25 +553,22 @@ exports('useDeployer', function(data)
             }) then
                 -- Progress completed successfully
                 ClearPedTasks(cache.ped)
-                TriggerServerEvent('spikes:server:deployDeployer', deployCoords, playerHeading)
+                TriggerServerEvent('spikes:server:createSpike', {
+                    type = SPIKE_TYPES.REMOTE_DEPLOYER,
+                    coords = deployCoords,
+                    heading = playerHeading
+                })
             else
                 -- Progress was cancelled
                 ClearPedTasks(cache.ped)
             end
-
         end
-
     end)
 end)
 
 exports('useRemote', function(data)
     exports.ox_inventory:useItem(data, function(data)
-
         if data then
-
-            print('OK')
-            lib.print.info(data)
-    
             -- Check if the remote has a frequency set
             if not data.metadata or not data.metadata?.frequency then
                 return lib.notify({
@@ -501,27 +579,32 @@ exports('useRemote', function(data)
             
             local frequency = data.metadata.frequency
             
-            -- Look for a deployer with matching frequency
+            -- Look for a remote deployer with matching frequency that hasn't been deployed yet
             local foundDeployer = false
             for spikeId, spikeData in pairs(deployedSpikes) do
-                if spikeData.frequency == frequency then
+                if spikeData.type == SPIKE_TYPES.REMOTE_DEPLOYER and 
+                   spikeData.frequency == frequency and 
+                   spikeData.state == SPIKE_STATES.PLACED then
                     foundDeployer = true
-                    -- Trigger server event to deploy the spikes from this deployer
-                    TriggerServerEvent('spikes:server:remoteDeploySpikes', spikeId)
+                    
+                    lib.notify({
+                        description = 'Deploying spikes on frequency ' .. frequency .. ' MHz...',
+                        type = 'info'
+                    })
+                    
+                    -- Deploy the spikes
+                    deployRemoteSpikes(spikeId)
                     break
                 end
             end
             
             if not foundDeployer then
                 lib.notify({
-                    description = 'No deployer found on frequency ' .. frequency .. ' MHz.',
+                    description = 'No available deployer found on frequency ' .. frequency .. ' MHz.',
                     type = 'error'
                 })
             end
-
         end
-
-
     end)
 end)
 
@@ -552,10 +635,6 @@ exports('tuneFrequency', function(data)
         end
     end)
 end)
-
--- 
---  HANDLERS
---
 
 exports.ox_inventory:displayMetadata({
     frequency = 'Frequency',

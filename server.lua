@@ -1,134 +1,206 @@
 local config = require 'config'
 
--- Table to store deployed spikes
+-- Unified table for all spike systems
 local deployedSpikes = {}
-local deployedSpikeStrips = {} -- For standalone spike strips
 local spikeIdCounter = 0
-local stripIdCounter = 0
 
---
--- FUNCTIONS
---
+-- Spike types and states
+local SPIKE_TYPES = {
+    STANDALONE = 'standalone',
+    REMOTE_DEPLOYER = 'remote_deployer'
+}
+
+local SPIKE_STATES = {
+    PLACED = 'placed',      -- For remote deployers (not deployed)
+    DEPLOYED = 'deployed'   -- For both types when spikes are active
+}
 
 local function generateSpikeId()
     spikeIdCounter = spikeIdCounter + 1
     return spikeIdCounter
 end
 
-local function generateStripId()
-    stripIdCounter = stripIdCounter + 1
-    return stripIdCounter
-end
-
 local function generateFrequency()
     return math.random(config.deployer.frequency.min, config.deployer.frequency.max)
+end
+
+local function getSpikePositions(num, origin, heading)
+    local positions = {}
+    for i = 1, num do
+        local pos = GetOffsetFromCoordAndHeadingInWorldCoords(origin.x, origin.y, origin.z, heading, 0.0, -1.5 + (3.5 * i), 0.15)
+        positions[i] = vector4(pos.x, pos.y, pos.z, heading)
+    end
+    return positions
 end
 
 local function removePlayerSpikes(serverId)
     for spikeId, spikeData in pairs(deployedSpikes) do
         if spikeData.owner == serverId then
-            -- Remove from tracking
             deployedSpikes[spikeId] = nil
-            -- Tell all clients to remove this spike
             TriggerClientEvent('spikes:client:removeSpike', -1, spikeId)
-        end
-    end
-
-    -- Clean up spike strips
-    for stripId, stripData in pairs(deployedSpikeStrips) do
-        if stripData.owner == serverId then
-            deployedSpikeStrips[stripId] = nil
-            TriggerClientEvent('spikes:client:removeSpikeStrip', -1, stripId)
         end
     end
 end
 
---
--- EVENTS
---
-
-RegisterNetEvent('spikes:server:deploySpikes', function(coords, heading)
+-- Unified event to create any spike type
+RegisterNetEvent('spikes:server:createSpike', function(spikeData)
     local src = source
     local Player = exports.qbx_core:GetPlayer(src)
     
     if not Player then return end
     
-    -- Verify player has the deployer item
-    local hasItem = exports.ox_inventory:GetItem(src, 'spike_deployer', nil, true)
+    local spikeId = generateSpikeId()
     
-    if hasItem and hasItem >= 1 then
-        -- Remove one deployer from inventory
-        exports.ox_inventory:RemoveItem(src, 'spike_deployer', 1)
+    if spikeData.type == SPIKE_TYPES.REMOTE_DEPLOYER then
+        -- Handle remote deployer
+        local hasItem = exports.ox_inventory:GetItem(src, 'spike_deployer', nil, true)
         
-        -- Generate unique spike ID and frequency
-        local spikeId = generateSpikeId()
-        local frequency = generateFrequency()
+        if hasItem and hasItem >= 1 then
+            exports.ox_inventory:RemoveItem(src, 'spike_deployer', 1)
+            
+            local frequency = generateFrequency()
+            
+            -- Store spike data
+            deployedSpikes[spikeId] = {
+                type = SPIKE_TYPES.REMOTE_DEPLOYER,
+                state = SPIKE_STATES.PLACED,
+                owner = src,
+                coords = spikeData.coords,
+                heading = spikeData.heading,
+                frequency = frequency,
+                timestamp = os.time()
+            }
+            
+            -- Send to all clients
+            TriggerClientEvent('spikes:client:createSpike', -1, spikeId, {
+                type = SPIKE_TYPES.REMOTE_DEPLOYER,
+                coords = spikeData.coords,
+                heading = spikeData.heading,
+                frequency = frequency
+            }, src)
+            
+            TriggerClientEvent('ox_lib:notify', src, {
+                title = 'Spike Strip',
+                description = 'Spike deployer placed on frequency: ' .. frequency .. ' MHz',
+                type = 'success'
+            })
+        else
+            TriggerClientEvent('ox_lib:notify', src, {
+                title = 'Spike Strip',
+                description = 'You don\'t have a spike deployer',
+                type = 'error'
+            })
+        end
         
-        -- Store spike data
-        deployedSpikes[spikeId] = {
-            owner = src,
-            coords = coords,
-            heading = heading,
-            frequency = frequency,
-            timestamp = os.time()
-        }
+    elseif spikeData.type == SPIKE_TYPES.STANDALONE then
+        -- Handle standalone spike strip
+        local hasItem = exports.ox_inventory:GetItem(src, 'spike_roll', nil, true)
         
-        -- Broadcast to all players to create the spike prop
-        TriggerClientEvent('spikes:client:createSpikeProp', -1, coords, heading, spikeId, src, frequency)
-        
-        -- Optional: Add notification
-        TriggerClientEvent('ox_lib:notify', src, {
-            title = 'Spike Strip',
-            description = 'Spike strip deployed on frequency: ' .. frequency .. ' MHz',
-            type = 'success'
-        })
-    else
-        -- Player doesn't have the item (possible exploit attempt)
-        TriggerClientEvent('ox_lib:notify', src, {
-            title = 'Spike Strip',
-            description = 'You don\'t have a spike deployer',
-            type = 'error'
-        })
+        if hasItem and hasItem >= 1 then
+            exports.ox_inventory:RemoveItem(src, 'spike_roll', 1)
+            
+            -- Store spike data
+            deployedSpikes[spikeId] = {
+                type = SPIKE_TYPES.STANDALONE,
+                state = SPIKE_STATES.DEPLOYED,
+                owner = src,
+                positions = spikeData.positions,
+                length = spikeData.length,
+                timestamp = os.time()
+            }
+            
+            -- Send to all clients
+            TriggerClientEvent('spikes:client:createSpike', -1, spikeId, {
+                type = SPIKE_TYPES.STANDALONE,
+                positions = spikeData.positions
+            }, src)
+            
+            TriggerClientEvent('ox_lib:notify', src, {
+                title = 'Spike Strips',
+                description = 'Spike strips deployed successfully',
+                type = 'success'
+            })
+        else
+            TriggerClientEvent('ox_lib:notify', src, {
+                title = 'Spike Strips',
+                description = 'You don\'t have a spike roll',
+                type = 'error'
+            })
+        end
     end
 end)
 
-RegisterNetEvent('spikes:server:createSpikeStrip', function(positions)
+-- Callback to verify remote spike deployment
+lib.callback.register('spikes:server:verifyRemoteDeployment', function(source, spikeId)
     local src = source
     local Player = exports.qbx_core:GetPlayer(src)
     
-    if not Player then return end
+    if not Player then
+        return { success = false, message = "Player not found" }
+    end
     
-    -- Verify player has the spike roll item
-    local hasItem = exports.ox_inventory:GetItem(src, 'spike_roll', nil, true)
-    
-    if hasItem and hasItem >= 1 then
-        -- Remove one spike roll from inventory
-        exports.ox_inventory:RemoveItem(src, 'spike_roll', 1)
-        
-        -- Generate unique strip ID
-        local stripId = generateStripId()
-        
-        -- Store spike strip data
-        deployedSpikeStrips[stripId] = {
-            owner = src,
-            positions = positions,
-            timestamp = os.time()
+    local spikeData = deployedSpikes[spikeId]
+    if not spikeData or spikeData.type ~= SPIKE_TYPES.REMOTE_DEPLOYER or spikeData.state ~= SPIKE_STATES.PLACED then
+        return { 
+            success = false, 
+            message = "Deployer not found or already deployed" 
         }
-        
-        -- Broadcast to all players to create the spike strip
-        TriggerClientEvent('spikes:client:createSpikeStrip', -1, stripId, positions, src)
-        
-        lib.notify(src, {
-            title = 'Spike Strips',
-            description = 'Spike strips deployed successfully',
-            type = 'success'
-        })
-    else
-        lib.notify(src, {
-            title = 'Spike Strips',
-            description = 'You don\'t have a spike roll',
-            type = 'error'
-        })
+    end
+    
+    -- Check distance from player to deployer
+    local playerCoords = GetEntityCoords(GetPlayerPed(src))
+    local deployerCoords = vector3(spikeData.coords.x, spikeData.coords.y, spikeData.coords.z)
+    local distance = #(playerCoords - deployerCoords)
+    
+    if distance > config.deployer.maxDistance then
+        return { 
+            success = false, 
+            message = string.format('Deployer is too far away (%.1fm). Max range: %.1fm', distance, config.deployer.maxDistance)
+        }
+    end
+    
+    -- Return deployer data for client-side processing
+    return { 
+        success = true, 
+        deployerData = {
+            coords = spikeData.coords,
+            heading = spikeData.heading,
+            frequency = spikeData.frequency
+        }
+    }
+end)
+
+-- Event to update spike state after client deployment
+RegisterNetEvent('spikes:server:updateSpikeState', function(spikeId, positions)
+    local src = source
+    local spikeData = deployedSpikes[spikeId]
+    
+    if not spikeData or spikeData.type ~= SPIKE_TYPES.REMOTE_DEPLOYER or spikeData.state ~= SPIKE_STATES.PLACED then
+        return
+    end
+    
+    -- Update server data
+    deployedSpikes[spikeId].state = SPIKE_STATES.DEPLOYED
+    deployedSpikes[spikeId].positions = positions
+    
+    -- Tell all clients to deploy the spikes
+    TriggerClientEvent('spikes:client:deployRemoteSpikes', -1, spikeId, positions)
+    
+    -- Notify the player
+    TriggerClientEvent('ox_lib:notify', src, {
+        title = 'Spike Strip',
+        description = 'Remote spikes deployed successfully',
+        type = 'success'
+    })
+end)
+
+RegisterNetEvent('spikes:server:tuneRemoteFrequency', function(slot, frequency)
+    local src = source
+    
+    -- Verify item ownership again (for security)
+    local item = exports.ox_inventory:GetSlot(src, slot)
+    if item and item.name == 'spike_deployer_remote' then
+        exports.ox_inventory:SetMetadata(src, slot, {frequency = frequency})
     end
 end)
 
@@ -141,8 +213,8 @@ RegisterNetEvent('spikes:server:pickupSpike', function(spikeId)
     local spikeData = deployedSpikes[spikeId]
     if not spikeData then
         return TriggerClientEvent('ox_lib:notify', src, {
-            title = 'Spike Strip Deployer',
-            description = 'Deployer not found',
+            title = 'Spike Strip',
+            description = 'Spike system not found',
             type = 'error'
         })
     end
@@ -150,26 +222,37 @@ RegisterNetEvent('spikes:server:pickupSpike', function(spikeId)
     -- Check if player is the owner
     if spikeData.owner ~= src then
         return TriggerClientEvent('ox_lib:notify', src, {
-            title = 'Spike Strip Deployer',
-            description = 'You can only pick up your own deployer',
+            title = 'Spike Strip',
+            description = 'You can only pick up your own equipment',
             type = 'error'
         })
     end
     
-    -- Check distance (optional security measure)
+    -- Only allow pickup of remote deployers that haven't deployed spikes
+    if spikeData.type ~= SPIKE_TYPES.REMOTE_DEPLOYER or spikeData.state ~= SPIKE_STATES.PLACED then
+        return TriggerClientEvent('ox_lib:notify', src, {
+            title = 'Spike Strip',
+            description = 'Cannot pick up deployed spike systems',
+            type = 'error'
+        })
+    end
+    
+    -- Check distance
     local playerCoords = GetEntityCoords(GetPlayerPed(src))
     local distance = #(playerCoords - vector3(spikeData.coords.x, spikeData.coords.y, spikeData.coords.z))
     
     if distance > 5.0 then
         return TriggerClientEvent('ox_lib:notify', src, {
-            title = 'Spike Strip Deployer',
-            description = 'You are too far away from the deployer',
+            title = 'Spike Strip',
+            description = 'You are too far away',
             type = 'error'
         })
     end
     
-    -- Give back the deployer item
-    exports.ox_inventory:AddItem(src, 'spike_deployer', 1)
+    -- Give back the appropriate item
+    if spikeData.type == SPIKE_TYPES.REMOTE_DEPLOYER then
+        exports.ox_inventory:AddItem(src, 'spike_deployer', 1)
+    end
     
     -- Remove spike from tracking
     deployedSpikes[spikeId] = nil
@@ -178,32 +261,14 @@ RegisterNetEvent('spikes:server:pickupSpike', function(spikeId)
     TriggerClientEvent('spikes:client:removeSpike', -1, spikeId)
     
     TriggerClientEvent('ox_lib:notify', src, {
-        title = 'Spike Strip Deployer',
-        description = 'Deployer picked up',
+        title = 'Spike Strip',
+        description = 'Equipment picked up',
         type = 'success'
     })
 end)
 
--- Server-side event to tune the remote
-RegisterNetEvent('spikes:server:tuneRemoteFrequency', function(slot, frequency)
+-- Clean up spikes when player disconnects
+AddEventHandler('playerDropped', function(reason)
     local src = source
-    
-    -- Verify item ownership again (for security)
-    local item = exports.ox_inventory:GetSlot(src, slot)
-    if item and item.name == 'spike_deployer_remote' then
-        exports.ox_inventory:SetMetadata(src, slot, {frequency = frequency})
-    end
-end)
-
--- Server-side event to deploy spikes remotely
-RegisterNetEvent('spikes:server:remoteDeploySpikes', function(spikeId)
-    local src = source
-    
-    -- Get the spike data from your server-side storage
-    local spikeData = deployedSpikes[spikeId]
-    
-    if spikeData then
-        -- Notify all clients to activate these spikes
-        TriggerClientEvent('spikes:client:activateSpikes', -1, spikeId)
-    end
+    removePlayerSpikes(src)
 end)

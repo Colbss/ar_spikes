@@ -6,7 +6,8 @@ return {
         frequency = { -- Frequency range for remote
             min = 100,
             max = 999,
-        }
+        },
+        maxDistance = 100.0, -- Max distance to deploy spikes
     },
 
     roll = { -- Spike Strip Roll
