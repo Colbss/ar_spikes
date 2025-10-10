@@ -369,7 +369,7 @@ RegisterNetEvent('spikes:client:deployRemoteSpikes', function(spikeId, positions
     deployedSpikes[spikeId].spikes = spikes
     deployedSpikes[spikeId].state = SPIKE_STATES.DEPLOYED
     
-    -- Update target options (remove pickup since spikes are deployed)
+    -- Update target options (replace pickup with reset since spikes are deployed)
     if DoesEntityExist(spikeData.deployer.entity) then
         exports.ox_target:removeLocalEntity(spikeData.deployer.entity)
         exports.ox_target:addLocalEntity(spikeData.deployer.entity, {
@@ -383,6 +383,68 @@ RegisterNetEvent('spikes:client:deployRemoteSpikes', function(spikeId, positions
                         description = 'Frequency: ' .. spikeData.frequency .. ' MHz',
                         type = 'inform'
                     })
+                end
+            },
+            {
+                name = 'spike_reset_deployer',
+                icon = 'fas fa-undo',
+                label = 'Reset Deployer',
+                canInteract = function()
+                    return spikeData.owner == cache.serverId
+                end,
+                onSelect = function()
+                    TriggerServerEvent('spikes:server:resetDeployer', spikeId)
+                end
+            }
+        })
+    end
+end)
+
+-- Event to reset a remote deployer
+RegisterNetEvent('spikes:client:resetDeployer', function(spikeId)
+    local spikeData = deployedSpikes[spikeId]
+    if not spikeData or spikeData.type ~= SPIKE_TYPES.REMOTE_DEPLOYER or spikeData.state ~= SPIKE_STATES.DEPLOYED then
+        return
+    end
+    
+    -- Remove deployed spikes
+    if spikeData.spikes then
+        for _, spike in pairs(spikeData.spikes) do
+            if DoesEntityExist(spike.entity) then
+                DeleteEntity(spike.entity)
+            end
+        end
+    end
+    
+    -- Update the spike data
+    deployedSpikes[spikeId].spikes = nil
+    deployedSpikes[spikeId].state = SPIKE_STATES.PLACED
+    
+    -- Update target options (restore pickup option since spikes are reset)
+    if DoesEntityExist(spikeData.deployer.entity) then
+        exports.ox_target:removeLocalEntity(spikeData.deployer.entity)
+        exports.ox_target:addLocalEntity(spikeData.deployer.entity, {
+            {
+                name = 'spike_get_frequency',
+                icon = 'fas fa-broadcast-tower',
+                label = 'Get Frequency',
+                onSelect = function()
+                    lib.notify({
+                        title = 'Spike Strip Deployer',
+                        description = 'Frequency: ' .. spikeData.frequency .. ' MHz',
+                        type = 'inform'
+                    })
+                end
+            },
+            {
+                name = 'spike_pickup',
+                icon = 'fas fa-hand-paper',
+                label = 'Pick Up Deployer',
+                canInteract = function()
+                    return spikeData.owner == cache.serverId and deployedSpikes[spikeId].state == SPIKE_STATES.PLACED
+                end,
+                onSelect = function()
+                    TriggerServerEvent('spikes:server:pickupSpike', spikeId)
                 end
             }
         })

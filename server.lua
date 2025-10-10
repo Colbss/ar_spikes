@@ -194,6 +194,67 @@ RegisterNetEvent('spikes:server:updateSpikeState', function(spikeId, positions)
     })
 end)
 
+-- Event to reset a remote deployer
+RegisterNetEvent('spikes:server:resetDeployer', function(spikeId)
+    local src = source
+    local Player = exports.qbx_core:GetPlayer(src)
+    
+    if not Player then return end
+    
+    local spikeData = deployedSpikes[spikeId]
+    if not spikeData then
+        return TriggerClientEvent('ox_lib:notify', src, {
+            title = 'Spike Strip',
+            description = 'Deployer not found',
+            type = 'error'
+        })
+    end
+    
+    -- Check if player is the owner
+    if spikeData.owner ~= src then
+        return TriggerClientEvent('ox_lib:notify', src, {
+            title = 'Spike Strip',
+            description = 'You can only reset your own deployer',
+            type = 'error'
+        })
+    end
+    
+    -- Only allow reset of deployed remote deployers
+    if spikeData.type ~= SPIKE_TYPES.REMOTE_DEPLOYER or spikeData.state ~= SPIKE_STATES.DEPLOYED then
+        return TriggerClientEvent('ox_lib:notify', src, {
+            title = 'Spike Strip',
+            description = 'Deployer is not deployed or invalid',
+            type = 'error'
+        })
+    end
+    
+    -- Check distance
+    local playerCoords = GetEntityCoords(GetPlayerPed(src))
+    local deployerCoords = vector3(spikeData.coords.x, spikeData.coords.y, spikeData.coords.z)
+    local distance = #(playerCoords - deployerCoords)
+    
+    if distance > 5.0 then
+        return TriggerClientEvent('ox_lib:notify', src, {
+            title = 'Spike Strip',
+            description = 'You are too far away from the deployer',
+            type = 'error'
+        })
+    end
+    
+    -- Update server data
+    deployedSpikes[spikeId].state = SPIKE_STATES.PLACED
+    deployedSpikes[spikeId].positions = nil
+    
+    -- Tell all clients to reset the deployer
+    TriggerClientEvent('spikes:client:resetDeployer', -1, spikeId)
+    
+    TriggerClientEvent('ox_lib:notify', src, {
+        title = 'Spike Strip',
+        description = 'Deployer reset successfully',
+        type = 'success'
+    })
+end)
+
 RegisterNetEvent('spikes:server:tuneRemoteFrequency', function(slot, frequency)
     local src = source
     
