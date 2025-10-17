@@ -170,6 +170,69 @@ lib.callback.register('colbss-spikes:server:verifyRemoteDeployment', function(so
     }
 end)
 
+-- Callback to validate remote deployment request
+lib.callback.register('colbss-spikes:server:validateRemoteDeployment', function(source, frequency)
+    local src = source
+    local Player = exports.qbx_core:GetPlayer(src)
+    
+    if not Player then
+        return { 
+            success = false, 
+            message = "Player not found" 
+        }
+    end
+    
+    local playerCoords = GetEntityCoords(GetPlayerPed(src))
+    
+    -- Look for a remote deployer with matching frequency that hasn't been deployed yet
+    for spikeId, spikeData in pairs(deployedSpikes) do
+        if spikeData.type == SPIKE_TYPES.REMOTE_DEPLOYER and 
+           spikeData.frequency == frequency and 
+           spikeData.state == SPIKE_STATES.PLACED then
+            
+            -- Check distance from player to deployer
+            local deployerCoords = vector3(spikeData.coords.x, spikeData.coords.y, spikeData.coords.z)
+            local distance = #(playerCoords - deployerCoords)
+            
+            if distance > config.deployer.maxDistance then
+                return { 
+                    success = false, 
+                    message = string.format('Deployer is too far away (%.1fm). Max range: %.1fm', distance, config.deployer.maxDistance)
+                }
+            end
+            
+            -- Valid deployment - return deployer data
+            return { 
+                success = true, 
+                spikeId = spikeId,
+                deployerData = {
+                    coords = spikeData.coords,
+                    heading = spikeData.heading,
+                    frequency = spikeData.frequency
+                }
+            }
+        end
+    end
+    
+    -- Check if there's a deployer but already deployed
+    for spikeId, spikeData in pairs(deployedSpikes) do
+        if spikeData.type == SPIKE_TYPES.REMOTE_DEPLOYER and 
+           spikeData.frequency == frequency and
+           spikeData.state == SPIKE_STATES.DEPLOYED then
+            return { 
+                success = false, 
+                message = 'Spikes already deployed on frequency ' .. frequency .. ' MHz.'
+            }
+        end
+    end
+    
+    -- No deployer found on frequency
+    return { 
+        success = false, 
+        message = 'No deployer found on frequency ' .. frequency .. ' MHz.'
+    }
+end)
+
 -- Event to update spike state after client deployment
 RegisterNetEvent('colbss-spikes:server:updateSpikeState', function(spikeId, positions)
     local src = source

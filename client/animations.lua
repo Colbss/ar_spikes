@@ -58,7 +58,7 @@ function StartTuneAnimation()
     
     -- Play animation
     lib.requestAnimDict(animConfig.dict, 5000)
-    TaskPlayAnim(playerPed, animConfig.dict, animConfig.name, 4.0, -4.0, -1, 49, 0, false, false, false)
+    TaskPlayAnim(playerPed, animConfig.dict, animConfig.name, 4.0, -4.0, -1, animConfig.flags, 0, false, false, false)
     
     animationState.isPlaying = true
     animationState.currentType = 'tune'
@@ -95,7 +95,7 @@ function PlayDeployAnimation(callback)
     
     -- Play animation
     lib.requestAnimDict(animConfig.dict, 5000)
-    TaskPlayAnim(playerPed, animConfig.dict, animConfig.name, 4.0, -4.0, 1500, 0, 0, false, false, false)
+    TaskPlayAnim(playerPed, animConfig.dict, animConfig.name, 4.0, -4.0, 1500, animConfig.flags, 0, false, false, false)
     
     animationState.isPlaying = true
     animationState.currentType = 'deploy'

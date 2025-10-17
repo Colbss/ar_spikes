@@ -247,6 +247,34 @@ local function deployRemoteSpikes(spikeId)
     end)
 end
 
+local function resetRemoteDeployer(spikeId)
+    -- Play reset animation (same as deployer placement)
+    lib.requestAnimDict('mp_weapons_deal_sting')
+    TaskPlayAnim(cache.ped, 'mp_weapons_deal_sting', 'crackhead_bag_loop', 8.0, 8.0, -1, 1, 0, false, false, false)
+    
+    -- Show progress bar
+    if lib.progressBar({
+        duration = 3000,
+        label = 'Resetting Spike Deployer...',
+        useWhileDead = false,
+        allowCuffed = false,
+        allowSwimming = false,
+        canCancel = true,
+        disable = {
+            car = true,
+            move = true,
+            combat = true
+        }
+    }) then
+        -- Progress completed successfully
+        ClearPedTasks(cache.ped)
+        TriggerServerEvent('colbss-spikes:server:resetDeployer', spikeId)
+    else
+        -- Progress was cancelled
+        ClearPedTasks(cache.ped)
+    end
+end
+
 -- Statebag handler for roll carrying
 AddStateBagChangeHandler('spikestripCarrying', nil, function(bagName, key, value, reserved, replicated)
     if replicated then return end
@@ -341,6 +369,17 @@ RegisterNetEvent('colbss-spikes:client:createSpike', function(spikeId, spikeData
                 onSelect = function()
                     TriggerServerEvent('colbss-spikes:server:pickupSpike', spikeId)
                 end
+            },
+            {
+                name = 'spike_reset_deployer',
+                icon = 'fas fa-undo',
+                label = 'Reset Deployer',
+                canInteract = function()
+                    return spikeData.owner == cache.serverId
+                end,
+                onSelect = function()
+                    resetRemoteDeployer(spikeId)
+                end
             }
         })
         
@@ -396,7 +435,7 @@ RegisterNetEvent('colbss-spikes:client:deployRemoteSpikes', function(spikeId, po
                     return spikeData.owner == cache.serverId
                 end,
                 onSelect = function()
-                    TriggerServerEvent('colbss-spikes:server:resetDeployer', spikeId)
+                    resetRemoteDeployer(spikeId)
                 end
             }
         })
@@ -644,31 +683,57 @@ exports('useRemote', function(data)
             
             local frequency = data.metadata.frequency
             
-            -- Look for a remote deployer with matching frequency that hasn't been deployed yet
-            local foundDeployer = false
-            for spikeId, spikeData in pairs(deployedSpikes) do
-                if spikeData.type == SPIKE_TYPES.REMOTE_DEPLOYER and 
-                   spikeData.frequency == frequency and 
-                   spikeData.state == SPIKE_STATES.PLACED then
-                    foundDeployer = true
-                    
+            -- Always play animation regardless of outcome
+            exports['colbss_spikes']:PlayDeployAnimation(function()
+                -- Request validation from server
+                local result = lib.callback.await('colbss-spikes:server:validateRemoteDeployment', false, frequency)
+                
+                if result.success then
+                    -- Valid deployment - proceed with spike deployment
                     lib.notify({
                         description = 'Deploying spikes on frequency ' .. frequency .. ' MHz...',
                         type = 'info'
                     })
                     
-                    -- Deploy the spikes
-                    deployRemoteSpikes(spikeId)
-                    break
+                    local deployerData = result.deployerData
+                    local spikeId = result.spikeId
+                    
+                    -- Adjust heading to deploy spikes 90 degrees left of the deployer
+                    local spikeHeading = deployerData.heading + 90.0
+                    if spikeHeading >= 360.0 then
+                        spikeHeading = spikeHeading - 360.0
+                    end
+                    
+                    -- Get spike positions relative to deployer (perpendicular to deployer heading)
+                    local positions = getSpikePositions(2, deployerData.coords, spikeHeading)
+                    local tempProps = {}
+                    
+                    -- Deploy each spike strip with animation
+                    for i = 1, 2 do
+                        local pos = positions[i]
+                        tempProps[i] = deploySpikes(pos.x, pos.y, pos.z, pos.w)
+                    end
+                    
+                    -- Wait for deployment animation
+                    Wait(1000)
+                    
+                    -- Clean up temporary props
+                    for i = 1, 2 do
+                        if DoesEntityExist(tempProps[i]) then
+                            DeleteEntity(tempProps[i])
+                        end
+                    end
+                    
+                    -- Update server with new spike positions
+                    TriggerServerEvent('colbss-spikes:server:updateSpikeState', spikeId, positions)
+                else
+                    -- Invalid deployment - show error message
+                    lib.notify({
+                        description = result.message,
+                        type = 'inform'
+                    })
                 end
-            end
-            
-            if not foundDeployer then
-                lib.notify({
-                    description = 'No available deployer found on frequency ' .. frequency .. ' MHz.',
-                    type = 'error'
-                })
-            end
+            end)
         end
     end)
 end)
