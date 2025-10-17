@@ -214,34 +214,37 @@ local function deployRemoteSpikes(spikeId)
     
     local deployerData = result.deployerData
     
-    -- Adjust heading to deploy spikes 90 degrees left of the deployer
-    local spikeHeading = deployerData.heading + 90.0
-    if spikeHeading >= 360.0 then
-        spikeHeading = spikeHeading - 360.0
-    end
-    
-    -- Get spike positions relative to deployer (perpendicular to deployer heading)
-    local positions = getSpikePositions(2, deployerData.coords, spikeHeading)
-    local tempProps = {}
-    
-    -- Deploy each spike strip with animation
-    for i = 1, 2 do
-        local pos = positions[i]
-        tempProps[i] = deploySpikes(pos.x, pos.y, pos.z, pos.w)
-    end
-    
-    -- Wait for deployment animation
-    Wait(1000)
-    
-    -- Clean up temporary props
-    for i = 1, 2 do
-        if DoesEntityExist(tempProps[i]) then
-            DeleteEntity(tempProps[i])
+    -- Play deploy animation with callback for actual deployment
+    exports['colbss_spikes']:PlayDeployAnimation(function()
+        -- Adjust heading to deploy spikes 90 degrees left of the deployer
+        local spikeHeading = deployerData.heading + 90.0
+        if spikeHeading >= 360.0 then
+            spikeHeading = spikeHeading - 360.0
         end
-    end
-    
-    -- Update server with new spike positions
-    TriggerServerEvent('colbss-spikes:server:updateSpikeState', spikeId, positions)
+        
+        -- Get spike positions relative to deployer (perpendicular to deployer heading)
+        local positions = getSpikePositions(2, deployerData.coords, spikeHeading)
+        local tempProps = {}
+        
+        -- Deploy each spike strip with animation
+        for i = 1, 2 do
+            local pos = positions[i]
+            tempProps[i] = deploySpikes(pos.x, pos.y, pos.z, pos.w)
+        end
+        
+        -- Wait for deployment animation
+        Wait(1000)
+        
+        -- Clean up temporary props
+        for i = 1, 2 do
+            if DoesEntityExist(tempProps[i]) then
+                DeleteEntity(tempProps[i])
+            end
+        end
+        
+        -- Update server with new spike positions
+        TriggerServerEvent('colbss-spikes:server:updateSpikeState', spikeId, positions)
+    end)
 end
 
 -- Statebag handler for roll carrying
@@ -671,17 +674,18 @@ exports('useRemote', function(data)
 end)
 
 exports('tuneFrequency', function(data)
-
     exports.ox_inventory:useItem(data, function(data)
         if data then
-
-            print('OK')
-            lib.print.info(data)
-
+            -- Start tune animation
+            exports['colbss_spikes']:StartTuneAnimation()
+            
             -- Show input dialog to tune the frequency
             local input = lib.inputDialog('Tune Remote Frequency', {
                 {type = 'number', label = 'Frequency (MHz)', description = 'Enter frequency between 100-999', default = 100, min = 100, max = 999}
             })
+            
+            -- Stop tune animation when dialog closes
+            exports['colbss_spikes']:StopTuneAnimation()
             
             if not input or not input[1] then return end
             

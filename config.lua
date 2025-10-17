@@ -10,7 +10,7 @@ return {
         maxDistance = 100.0, -- Max distance to deploy spikes
         anim = {
             prop = 'deployer_remote',
-            use = {
+            tune = {
                 bone = 28422,
                 offset = vec3(0.00, 0.01, 0.0),
                 rotation = vec3(99.41, -3.64, -0.60),
