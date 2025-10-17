@@ -1,7 +1,7 @@
 local config = require 'config'
 
--- Deployer specific variables
-local deployedSpikes = {}
+-- Deployer specific variables (for targets and UI only)
+local deployerTargets = {}
 local playerRemoteProps = {}
 
 -- Animation state management
@@ -116,31 +116,21 @@ local function PlayDeployAnimation(callback)
 end
 
 local function cleanupAllSpikes()
-    for spikeId, spikeData in pairs(deployedSpikes) do
-        if spikeData.type == SPIKE_TYPES.REMOTE_DEPLOYER then
-            -- Remote deployer cleanup
-            if DoesEntityExist(spikeData.deployer.entity) then
-                exports.ox_target:removeLocalEntity(spikeData.deployer.entity)
-                DeleteEntity(spikeData.deployer.entity)
-            end
-            -- Clean up deployed spikes if any
-            if spikeData.spikes then
-                for _, spike in pairs(spikeData.spikes) do
-                    if DoesEntityExist(spike.entity) then
-                        DeleteEntity(spike.entity)
-                    end
-                end
-            end
+    -- Clean up all deployer targets and entities
+    for spikeId, targetData in pairs(deployerTargets) do
+        if targetData.deployer and DoesEntityExist(targetData.deployer.entity) then
+            exports.ox_target:removeLocalEntity(targetData.deployer.entity)
+            DeleteEntity(targetData.deployer.entity)
         end
     end
-    deployedSpikes = {}
+    deployerTargets = {}
 end
 
 local function resetRemoteDeployer(spikeId)
-    local spikeData = deployedSpikes[spikeId]
-    if not spikeData then return end
+    local targetData = deployerTargets[spikeId]
+    if not targetData or not targetData.deployer then return end
     
-    local deployerCoords = GetEntityCoords(spikeData.deployer.entity)
+    local deployerCoords = GetEntityCoords(targetData.deployer.entity)
     
     -- Face the deployer first
     FaceCoords(deployerCoords, function()
@@ -183,8 +173,8 @@ RegisterNetEvent('colbss-spikes:client:createDeployer', function(spikeId, spikeD
     PlaceObjectOnGroundProperly(deployer)
     FreezeEntityPosition(deployer, true)
     
-    -- Store in table
-    deployedSpikes[spikeId] = {
+    -- Store in local table for target management
+    deployerTargets[spikeId] = {
         type = SPIKE_TYPES.REMOTE_DEPLOYER,
         state = SPIKE_STATES.PLACED,
         owner = ownerServerId,
@@ -193,8 +183,7 @@ RegisterNetEvent('colbss-spikes:client:createDeployer', function(spikeId, spikeD
             entity = deployer,
             coords = spikeData.coords,
             heading = spikeData.heading
-        },
-        spikes = nil -- No spikes deployed yet
+        }
     }
     
     -- Add target to the deployer
@@ -216,7 +205,7 @@ RegisterNetEvent('colbss-spikes:client:createDeployer', function(spikeId, spikeD
             icon = 'fas fa-hand-paper',
             label = 'Pick Up Deployer',
             canInteract = function()
-                return hasJobAccess(config.deployer.jobs) and deployedSpikes[spikeId].state == SPIKE_STATES.PLACED
+                return hasJobAccess(config.deployer.jobs) and deployerTargets[spikeId].state == SPIKE_STATES.PLACED
             end,
             onSelect = function()
                 local deployerCoords = GetEntityCoords(spikeData.deployer.entity)
@@ -239,93 +228,26 @@ RegisterNetEvent('colbss-spikes:client:createDeployer', function(spikeId, spikeD
     })
 end)
 
--- Event to create remote deployer
-RegisterNetEvent('colbss-spikes:client:createSpike', function(spikeId, spikeData, ownerServerId)
-
-    lib.print.info(spikeData)
-
-    if spikeData.type == SPIKE_TYPES.REMOTE_DEPLOYER then
-        -- Create remote deployer prop
-        local deployerModel = GetHashKey(config.deployer.prop)
-        lib.requestModel(deployerModel)
-        
-        local deployer = CreateObject(deployerModel, spikeData.coords.x, spikeData.coords.y, spikeData.coords.z, false, false, false)
-        SetEntityHeading(deployer, spikeData.heading)
-        PlaceObjectOnGroundProperly(deployer)
-        FreezeEntityPosition(deployer, true)
-        
-        -- Store in table
-        deployedSpikes[spikeId] = {
-            type = SPIKE_TYPES.REMOTE_DEPLOYER,
-            state = SPIKE_STATES.PLACED,
-            owner = ownerServerId,
-            frequency = spikeData.frequency,
-            deployer = {
-                entity = deployer,
-                coords = spikeData.coords,
-                heading = spikeData.heading
-            },
-            spikes = nil -- No spikes deployed yet
-        }
-        
-        -- Add target to the deployer
-        exports.ox_target:addLocalEntity(deployer, {
-            {
-                name = 'spike_get_frequency',
-                icon = 'fas fa-broadcast-tower',
-                label = 'Get Frequency',
-                onSelect = function()
-                    lib.notify({
-                        title = 'Spike Strip Deployer',
-                        description = 'Frequency: ' .. spikeData.frequency .. ' MHz',
-                        type = 'inform'
-                    })
-                end
-            },
-            {
-                name = 'spike_pickup',
-                icon = 'fas fa-hand-paper',
-                label = 'Pick Up Deployer',
-                canInteract = function()
-                    return hasJobAccess(config.deployer.jobs) and deployedSpikes[spikeId].state == SPIKE_STATES.PLACED
-                end,
-                onSelect = function()
-                    TriggerServerEvent('colbss-spikes:server:pickupSpike', spikeId)
-                end
-            },
-            {
-                name = 'spike_reset_deployer',
-                icon = 'fas fa-undo',
-                label = 'Reset Deployer',
-                canInteract = function()
-                    return hasJobAccess(config.deployer.jobs)
-                end,
-                onSelect = function()
-                    resetRemoteDeployer(spikeId)
-                end
-            }
-        })
-    end
-end)
-
 -- Event to deploy spikes from a remote deployer
 RegisterNetEvent('colbss-spikes:client:deployRemoteSpikes', function(spikeId, positions)
-    local spikeData = deployedSpikes[spikeId]
-    if not spikeData or spikeData.type ~= SPIKE_TYPES.REMOTE_DEPLOYER or spikeData.state ~= SPIKE_STATES.PLACED then
+    local targetData = deployerTargets[spikeId]
+    if not targetData or targetData.type ~= SPIKE_TYPES.REMOTE_DEPLOYER or targetData.state ~= SPIKE_STATES.PLACED then
         return
     end
     
     -- Create the spike strips
     local spikes = createSpikeStrip(positions, spikeId)
     
-    -- Update the spike data
-    deployedSpikes[spikeId].spikes = spikes
-    deployedSpikes[spikeId].state = SPIKE_STATES.DEPLOYED
+    -- Add to unified spike tracking system
+    AddSpikeSystem(spikeId, SPIKE_TYPES.REMOTE_DEPLOYER, spikes)
+    
+    -- Update the local target data
+    targetData.state = SPIKE_STATES.DEPLOYED
     
     -- Update target options (replace pickup with reset since spikes are deployed)
-    if DoesEntityExist(spikeData.deployer.entity) then
-        exports.ox_target:removeLocalEntity(spikeData.deployer.entity)
-        exports.ox_target:addLocalEntity(spikeData.deployer.entity, {
+    if DoesEntityExist(targetData.deployer.entity) then
+        exports.ox_target:removeLocalEntity(targetData.deployer.entity)
+        exports.ox_target:addLocalEntity(targetData.deployer.entity, {
             {
                 name = 'spike_get_frequency',
                 icon = 'fas fa-broadcast-tower',
@@ -333,7 +255,7 @@ RegisterNetEvent('colbss-spikes:client:deployRemoteSpikes', function(spikeId, po
                 onSelect = function()
                     lib.notify({
                         title = 'Spike Strip Deployer',
-                        description = 'Frequency: ' .. spikeData.frequency .. ' MHz',
+                        description = 'Frequency: ' .. targetData.frequency .. ' MHz',
                         type = 'inform'
                     })
                 end
@@ -355,28 +277,29 @@ end)
 
 -- Event to reset a remote deployer
 RegisterNetEvent('colbss-spikes:client:resetDeployer', function(spikeId)
-    local spikeData = deployedSpikes[spikeId]
-    if not spikeData or spikeData.type ~= SPIKE_TYPES.REMOTE_DEPLOYER or spikeData.state ~= SPIKE_STATES.DEPLOYED then
+    local targetData = deployerTargets[spikeId]
+    if not targetData or targetData.type ~= SPIKE_TYPES.REMOTE_DEPLOYER or targetData.state ~= SPIKE_STATES.DEPLOYED then
         return
     end
     
-    -- Remove deployed spikes
-    if spikeData.spikes then
-        for _, spike in pairs(spikeData.spikes) do
+    -- Remove from unified spike tracking and clean up spike entities
+    local spikeSystem = GetSpikeSystem(spikeId)
+    if spikeSystem and spikeSystem.spikes then
+        for _, spike in pairs(spikeSystem.spikes) do
             if DoesEntityExist(spike.entity) then
                 DeleteEntity(spike.entity)
             end
         end
     end
+    RemoveSpikeSystem(spikeId)
     
-    -- Update the spike data
-    deployedSpikes[spikeId].spikes = nil
-    deployedSpikes[spikeId].state = SPIKE_STATES.PLACED
+    -- Update the local target data
+    targetData.state = SPIKE_STATES.PLACED
     
     -- Update target options (restore pickup option since spikes are reset)
-    if DoesEntityExist(spikeData.deployer.entity) then
-        exports.ox_target:removeLocalEntity(spikeData.deployer.entity)
-        exports.ox_target:addLocalEntity(spikeData.deployer.entity, {
+    if DoesEntityExist(targetData.deployer.entity) then
+        exports.ox_target:removeLocalEntity(targetData.deployer.entity)
+        exports.ox_target:addLocalEntity(targetData.deployer.entity, {
             {
                 name = 'spike_get_frequency',
                 icon = 'fas fa-broadcast-tower',
@@ -384,7 +307,7 @@ RegisterNetEvent('colbss-spikes:client:resetDeployer', function(spikeId)
                 onSelect = function()
                     lib.notify({
                         title = 'Spike Strip Deployer',
-                        description = 'Frequency: ' .. spikeData.frequency .. ' MHz',
+                        description = 'Frequency: ' .. targetData.frequency .. ' MHz',
                         type = 'inform'
                     })
                 end
@@ -394,7 +317,7 @@ RegisterNetEvent('colbss-spikes:client:resetDeployer', function(spikeId)
                 icon = 'fas fa-hand-paper',
                 label = 'Pick Up Deployer',
                 canInteract = function()
-                    return hasJobAccess(config.deployer.jobs) and deployedSpikes[spikeId].state == SPIKE_STATES.PLACED
+                    return hasJobAccess(config.deployer.jobs) and deployerTargets[spikeId].state == SPIKE_STATES.PLACED
                 end,
                 onSelect = function()
                     TriggerServerEvent('colbss-spikes:server:pickupSpike', spikeId)
@@ -404,52 +327,23 @@ RegisterNetEvent('colbss-spikes:client:resetDeployer', function(spikeId)
     end
 end)
 
--- Event to remove spikes
-RegisterNetEvent('colbss-spikes:client:removeSpike', function(spikeId)
-    local spikeData = deployedSpikes[spikeId]
-    if not spikeData then return end
-    
-    if spikeData.type == SPIKE_TYPES.REMOTE_DEPLOYER then
-        -- Remove deployer prop
-        if DoesEntityExist(spikeData.deployer.entity) then
-            exports.ox_target:removeLocalEntity(spikeData.deployer.entity)
-            DeleteEntity(spikeData.deployer.entity)
-        end
-        -- Remove deployed spikes if any
-        if spikeData.spikes then
-            for _, spike in pairs(spikeData.spikes) do
-                if DoesEntityExist(spike.entity) then
-                    DeleteEntity(spike.entity)
-                end
-            end
-        end
-    end
-    
-    deployedSpikes[spikeId] = nil
-end)
-
 -- Event to remove deployer
 RegisterNetEvent('colbss-spikes:client:removeDeployer', function(spikeId)
-    local spikeData = deployedSpikes[spikeId]
-    if not spikeData then return end
+    local targetData = deployerTargets[spikeId]
+    if not targetData then return end
     
-    if spikeData.type == SPIKE_TYPES.REMOTE_DEPLOYER then
+    -- Remove from unified spike tracking
+    RemoveSpikeSystem(spikeId)
+    
+    if targetData.type == SPIKE_TYPES.REMOTE_DEPLOYER then
         -- Remove deployer prop
-        if DoesEntityExist(spikeData.deployer.entity) then
-            exports.ox_target:removeLocalEntity(spikeData.deployer.entity)
-            DeleteEntity(spikeData.deployer.entity)
-        end
-        -- Remove deployed spikes if any
-        if spikeData.spikes then
-            for _, spike in pairs(spikeData.spikes) do
-                if DoesEntityExist(spike.entity) then
-                    DeleteEntity(spike.entity)
-                end
-            end
+        if DoesEntityExist(targetData.deployer.entity) then
+            exports.ox_target:removeLocalEntity(targetData.deployer.entity)
+            DeleteEntity(targetData.deployer.entity)
         end
     end
     
-    deployedSpikes[spikeId] = nil
+    deployerTargets[spikeId] = nil
 end)
 
 -- Export for using deployer

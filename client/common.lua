@@ -7,6 +7,26 @@ local animationState = {
     currentType = nil
 }
 
+-- Unified spike tracking for collision detection
+local deployedSpikes = {}
+local nearbyCount = 0
+local nearbySpikes = {}
+local stingersTick
+
+-- Wheel bone definitions for tire bursting
+local bones = {
+    { bone = "wheel_lf", index = 0 },
+    { bone = "wheel_rf", index = 1 },
+    { bone = "wheel_lm1", index = 2 },
+    { bone = "wheel_rm1", index = 3 },
+    { bone = "wheel_lr", index = 4 },
+    { bone = "wheel_rr", index = 5 },
+    { bone = "wheel_lm2", index = 45 },
+    { bone = "wheel_lm3", index = 46 },
+    { bone = "wheel_rm2", index = 47 },
+    { bone = "wheel_rm3", index = 48 },
+}
+
 -- Shared spike types
 SPIKE_TYPES = {
     STANDALONE = 'standalone',
@@ -17,6 +37,110 @@ SPIKE_STATES = {
     PLACED = 'placed',
     DEPLOYED = 'deployed'
 }
+
+-- Spike collision detection functions
+function handleTouching(minOffset, maxOffset, vehicle)
+    for i = 1, #bones do
+        local bone = bones[i]
+        local boneIndex = GetEntityBoneIndexByName(vehicle, bone.bone)
+
+        if boneIndex == -1 or IsVehicleTyreBurst(vehicle, bone.index, false) then
+            goto nextBone
+        end
+
+        local boneCoords = GetWorldPositionOfEntityBone(vehicle, boneIndex)
+        local wheelTouching = IsPointInAngledArea(
+            boneCoords.x, boneCoords.y, boneCoords.z,
+            minOffset.x, minOffset.y, minOffset.z,
+            maxOffset.x, maxOffset.y, maxOffset.z,
+            0.45, false, false
+        )
+
+        if wheelTouching then
+            SetVehicleTyreBurst(vehicle, bone.index, false, 100.0)
+        end
+
+        ::nextBone::
+    end
+end
+
+function processStingers()
+    local vehicle = cache.vehicle
+
+    if not vehicle or (vehicle and config.immune[GetEntityModel(vehicle)]) then
+        return
+    end
+
+    local vehicleCoords = GetEntityCoords(vehicle)
+    for id, spikeData in pairs(nearbySpikes) do
+        if spikeData.spikes then
+            for _, spike in pairs(spikeData.spikes) do
+                if vehicle and #(vehicleCoords - spike.coords.xyz) < 10.0 then
+                    if IsEntityTouchingEntity(spike.entity, vehicle) then
+                        -- Calculate collision boundaries for this spike
+                        local spikeCoords = GetEntityCoords(spike.entity)
+                        local minOffset = GetOffsetFromEntityInWorldCoords(spike.entity, 0.0, -1.84, -0.1)
+                        local maxOffset = GetOffsetFromEntityInWorldCoords(spike.entity, 0.0, 1.84, 0.1)
+                        handleTouching(minOffset, maxOffset, vehicle)
+                    end
+                end
+            end
+        end
+    end
+end
+
+-- Main collision detection thread
+CreateThread(function()
+    while true do
+        if nearbyCount ~= 0 then
+            table.wipe(nearbySpikes)
+            nearbyCount = 0
+        end
+
+        local coords = GetEntityCoords(cache.ped)
+
+        for id, spikeData in pairs(deployedSpikes) do
+            if spikeData.spikes and #spikeData.spikes > 0 then
+                local distance = #(coords - spikeData.spikes[1].coords.xyz)
+
+                if distance > 100.0 then
+                    goto continue
+                end
+
+                nearbyCount = nearbyCount + 1
+                nearbySpikes[id] = spikeData
+
+                ::continue::
+            end
+        end
+
+        if nearbyCount > 0 and cache.seat == -1 then
+            if not stingersTick then
+                stingersTick = SetInterval(processStingers)
+            end
+        elseif stingersTick then
+            stingersTick = ClearInterval(stingersTick)
+        end
+
+        Wait(250)
+    end
+end)
+
+-- Unified spike management functions
+function AddSpikeSystem(spikeId, spikeType, spikes)
+    deployedSpikes[spikeId] = {
+        type = spikeType,
+        spikes = spikes
+    }
+end
+
+function RemoveSpikeSystem(spikeId)
+    deployedSpikes[spikeId] = nil
+end
+
+function GetSpikeSystem(spikeId)
+    return deployedSpikes[spikeId]
+end
 
 -- Shared functions
 function PlayDeployAudio(entity)
@@ -160,5 +284,21 @@ AddEventHandler('onResourceStop', function(resourceName)
             DeleteEntity(prop)
         end
     end
-
+    
+    -- Clean up collision detection
+    if stingersTick then
+        stingersTick = ClearInterval(stingersTick)
+    end
+    
+    -- Clean up all spike entities
+    for id, spikeData in pairs(deployedSpikes) do
+        if spikeData.spikes then
+            for _, spike in pairs(spikeData.spikes) do
+                if DoesEntityExist(spike.entity) then
+                    DeleteEntity(spike.entity)
+                end
+            end
+        end
+    end
+    table.wipe(deployedSpikes)
 end)

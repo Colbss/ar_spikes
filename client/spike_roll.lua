@@ -10,8 +10,8 @@ local spikeLength = 1
 -- Local tracking of other players' roll props
 local playerRollProps = {}
 
--- Local tracking of standalone spikes for targets
-local standaloneSpikes = {}
+-- Local tracking for target zones only (not spikes)
+local standaloneTargets = {}
 
 local function cleanupRoll()
     if rollProp and DoesEntityExist(rollProp) then
@@ -244,11 +244,8 @@ RegisterNetEvent('colbss-spikes:client:createStandaloneSpikes', function(spikeId
     -- Create the spike strips using the shared function
     local spikes = createSpikeStrip(spikeData.positions, spikeId)
     
-    -- Store for cleanup and target management
-    standaloneSpikes[spikeId] = {
-        spikes = spikes,
-        owner = ownerServerId
-    }
+    -- Add to unified spike tracking system
+    AddSpikeSystem(spikeId, SPIKE_TYPES.STANDALONE, spikes)
     
     -- Create target zones for pickup - one zone covering the entire spike strip
     if #spikes > 0 then
@@ -290,6 +287,12 @@ RegisterNetEvent('colbss-spikes:client:createStandaloneSpikes', function(spikeId
                         return hasJobAccess(config.roll.jobs)
                     end,
                     onSelect = function()
+                        -- Get spikes from unified system
+                        local spikeSystem = GetSpikeSystem(spikeId)
+                        if not spikeSystem or not spikeSystem.spikes then return end
+                        
+                        local spikes = spikeSystem.spikes
+                        
                         -- Calculate center of spike strip for facing
                         local firstSpike = spikes[1]
                         local lastSpike = spikes[#spikes]
@@ -334,31 +337,34 @@ RegisterNetEvent('colbss-spikes:client:createStandaloneSpikes', function(spikeId
             }
         })
         
-        -- Store the zone ID for cleanup
-        standaloneSpikes[spikeId].zoneId = zoneId
+        -- Store only target zone info
+        standaloneTargets[spikeId] = {
+            zoneId = zoneId,
+            owner = ownerServerId
+        }
     end
 end)
 
 -- Event to remove standalone spike strips
 RegisterNetEvent('colbss-spikes:client:removeStandaloneSpikes', function(spikeId)
-    local spikeData = standaloneSpikes[spikeId]
-    if not spikeData then return end
-    
-    -- Remove spike entities
-    if spikeData.spikes then
-        for _, spike in pairs(spikeData.spikes) do
+    -- Remove from unified spike tracking
+    local spikeSystem = GetSpikeSystem(spikeId)
+    if spikeSystem and spikeSystem.spikes then
+        for _, spike in pairs(spikeSystem.spikes) do
             if DoesEntityExist(spike.entity) then
                 DeleteEntity(spike.entity)
             end
         end
     end
+    RemoveSpikeSystem(spikeId)
     
-    -- Remove target zone using the stored ID
-    if spikeData.zoneId then
-        exports.ox_target:removeZone(spikeData.zoneId)
+    -- Remove target zone
+    local targetData = standaloneTargets[spikeId]
+    if targetData and targetData.zoneId then
+        exports.ox_target:removeZone(targetData.zoneId)
     end
     
-    standaloneSpikes[spikeId] = nil
+    standaloneTargets[spikeId] = nil
 end)
 
 -- Cleanup on resource events
@@ -376,20 +382,13 @@ AddEventHandler('onResourceStop', function(resource)
     end
     playerRollProps = {}
     
-    -- Clean up standalone spikes and target zones
-    for spikeId, spikeData in pairs(standaloneSpikes) do
-        if spikeData.spikes then
-            for _, spike in pairs(spikeData.spikes) do
-                if DoesEntityExist(spike.entity) then
-                    DeleteEntity(spike.entity)
-                end
-            end
-        end
-        if spikeData.zoneId then
-            exports.ox_target:removeZone(spikeData.zoneId)
+    -- Clean up target zones only (spikes handled by unified system)
+    for spikeId, targetData in pairs(standaloneTargets) do
+        if targetData.zoneId then
+            exports.ox_target:removeZone(targetData.zoneId)
         end
     end
-    standaloneSpikes = {}
+    standaloneTargets = {}
 end)
 
 AddEventHandler('onResourceStart', function(resource)
@@ -406,18 +405,11 @@ AddEventHandler('onResourceStart', function(resource)
     end
     playerRollProps = {}
     
-    -- Clean up standalone spikes and target zones
-    for spikeId, spikeData in pairs(standaloneSpikes) do
-        if spikeData.spikes then
-            for _, spike in pairs(spikeData.spikes) do
-                if DoesEntityExist(spike.entity) then
-                    DeleteEntity(spike.entity)
-                end
-            end
-        end
-        if spikeData.zoneId then
-            exports.ox_target:removeZone(spikeData.zoneId)
+    -- Clean up target zones only (spikes handled by unified system)
+    for spikeId, targetData in pairs(standaloneTargets) do
+        if targetData.zoneId then
+            exports.ox_target:removeZone(targetData.zoneId)
         end
     end
-    standaloneSpikes = {}
+    standaloneTargets = {}
 end)
