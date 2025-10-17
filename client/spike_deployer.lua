@@ -139,7 +139,7 @@ end
 local function resetRemoteDeployer(spikeId)
     -- Play reset animation (same as deployer placement)
     lib.requestAnimDict('mp_weapons_deal_sting')
-    TaskPlayAnim(cache.ped, 'mp_weapons_deal_sting', 'crackhead_bag_loop', 8.0, 8.0, -1, 1, 0, false, false, false)
+    TaskPlayAnim(cache.ped, 'mp_weapons_deal_sting', 'crackhead_bag_loop', 4.0, -4.0, -1, 1, 0, false, false, false)
     
     -- Show progress bar
     if lib.progressBar({
@@ -465,7 +465,7 @@ exports('useDeployer', function(data)
             
             -- Start animation
             lib.requestAnimDict('mp_weapons_deal_sting')
-            TaskPlayAnim(cache.ped, 'mp_weapons_deal_sting', 'crackhead_bag_loop', 8.0, 8.0, -1, 1, 0, false, false, false)
+            TaskPlayAnim(cache.ped, 'mp_weapons_deal_sting', 'crackhead_bag_loop', 4.0, -4.0, -1, 1, 0, false, false, false)
             
             -- Show progress bar
             if lib.progressBar({

@@ -34,9 +34,12 @@ local function deployStandaloneSpikeStrip()
     local playerCoords = GetEntityCoords(cache.ped)
     local playerHeading = GetEntityHeading(cache.ped)
     
+    -- Stop the carry animation first
+    ClearPedTasks(cache.ped)
+    
     -- Start deploy animation
     lib.requestAnimDict('mp_weapons_deal_sting')
-    TaskPlayAnim(cache.ped, 'mp_weapons_deal_sting', 'crackhead_bag_loop', 5.0, 5.0, -1, 49, 1.0, false, false, false)
+    TaskPlayAnim(cache.ped, 'mp_weapons_deal_sting', 'crackhead_bag_loop', 4.0, -4.0, -1, 1, 1.0, false, false, false)
     
     -- Show progress bar
     if lib.progressBar({
@@ -50,6 +53,10 @@ local function deployStandaloneSpikeStrip()
             combat = true
         }
     }) then
+
+        -- Clean up roll prop immediately after successful deployment
+        cleanupRoll()
+
         -- Get spike positions
         local positions = getSpikePositions(spikeLength, playerCoords, playerHeading)
         local tempProps = {}
@@ -74,16 +81,14 @@ local function deployStandaloneSpikeStrip()
             end
         end
         
-        -- Clean up
-        cleanupRoll()
-        
         lib.notify({
             description = 'Spike strips deployed successfully',
             type = 'success'
         })
     else
-        -- Progress cancelled
-        ClearPedTasks(cache.ped)
+        -- Progress cancelled - restart carry animation
+        lib.requestAnimDict(config.roll.anim.dict)
+        TaskPlayAnim(cache.ped, config.roll.anim.dict, config.roll.anim.name, 4.0, -4.0, -1, 49, 0, false, false, false)
     end
 end
 
@@ -153,7 +158,7 @@ exports('useRoll', function(data, slot)
             lib.requestAnimDict(config.roll.anim.dict)
             
             -- Start animation (upper body only)
-            TaskPlayAnim(cache.ped, config.roll.anim.dict, config.roll.anim.name, 8.0, 8.0, -1, 49, 0, false, false, false)
+            TaskPlayAnim(cache.ped, config.roll.anim.dict, config.roll.anim.name, 4.0, -4.0, -1, 49, 0, false, false, false)
             
             -- Set state
             isCarryingRoll = true
@@ -259,8 +264,8 @@ RegisterNetEvent('colbss-spikes:client:createStandaloneSpikes', function(spikeId
             zoneRotation = zoneRotation + 360.0
         end
         
-        -- Create target zone
-        exports.ox_target:addBoxZone({
+        -- Create target zone and store the returned ID
+        local zoneId = exports.ox_target:addBoxZone({
             coords = vector3(centerX, centerY, centerZ),
             size = vector3(stripLength + 1.0, 1.0, math.max(1.0, heightDiff*2)), -- Extra width for easier targeting
             rotation = zoneRotation, -- Corrected rotation
@@ -273,15 +278,38 @@ RegisterNetEvent('colbss-spikes:client:createStandaloneSpikes', function(spikeId
                         return hasJobAccess(config.roll.jobs)
                     end,
                     onSelect = function()
-                        TriggerServerEvent('colbss-spikes:server:pickupStandaloneSpikes', spikeId)
+                        -- Start pickup animation
+                        lib.requestAnimDict('mp_weapons_deal_sting')
+                        TaskPlayAnim(cache.ped, 'mp_weapons_deal_sting', 'crackhead_bag_loop', 4.0, -4.0, -1, 1, 0, false, false, false)
+                        
+                        -- Show progress bar
+                        if lib.progressBar({
+                            duration = 3000,
+                            label = 'Picking up spike strips...',
+                            useWhileDead = false,
+                            allowCuffed = false,
+                            allowSwimming = false,
+                            canCancel = true,
+                            disable = {
+                                car = true,
+                                move = true,
+                                combat = true
+                            }
+                        }) then
+                            -- Progress completed successfully
+                            ClearPedTasks(cache.ped)
+                            TriggerServerEvent('colbss-spikes:server:pickupStandaloneSpikes', spikeId)
+                        else
+                            -- Progress was cancelled
+                            ClearPedTasks(cache.ped)
+                        end
                     end
                 }
-            },
-            debug = true,
+            }
         })
         
-        -- Store the zone name for cleanup
-        standaloneSpikes[spikeId].zoneName = 'pickup_standalone_spikes_' .. spikeId
+        -- Store the zone ID for cleanup
+        standaloneSpikes[spikeId].zoneId = zoneId
     end
 end)
 
@@ -299,9 +327,9 @@ RegisterNetEvent('colbss-spikes:client:removeStandaloneSpikes', function(spikeId
         end
     end
     
-    -- Remove target zone
-    if spikeData.zoneName then
-        exports.ox_target:removeZone(spikeData.zoneName)
+    -- Remove target zone using the stored ID
+    if spikeData.zoneId then
+        exports.ox_target:removeZone(spikeData.zoneId)
     end
     
     standaloneSpikes[spikeId] = nil
@@ -331,8 +359,8 @@ AddEventHandler('onResourceStop', function(resource)
                 end
             end
         end
-        if spikeData.zoneName then
-            exports.ox_target:removeZone(spikeData.zoneName)
+        if spikeData.zoneId then
+            exports.ox_target:removeZone(spikeData.zoneId)
         end
     end
     standaloneSpikes = {}
@@ -361,8 +389,8 @@ AddEventHandler('onResourceStart', function(resource)
                 end
             end
         end
-        if spikeData.zoneName then
-            exports.ox_target:removeZone(spikeData.zoneName)
+        if spikeData.zoneId then
+            exports.ox_target:removeZone(spikeData.zoneId)
         end
     end
     standaloneSpikes = {}
