@@ -62,7 +62,25 @@ RegisterNetEvent('colbss-spikes:server:createSpike', function(spikeData)
     if not Player then return end
     
     local playerCoords = GetEntityCoords(GetPlayerPed(src))
-    local deployCoords = vector3(spikeData.coords.x, spikeData.coords.y, spikeData.coords.z)
+    local deployCoords
+    
+    if spikeData.type == SPIKE_TYPES.STANDALONE then
+        -- For standalone spikes, use the first position in the array
+        if spikeData.positions and #spikeData.positions > 0 then
+            deployCoords = vector3(spikeData.positions[1].x, spikeData.positions[1].y, spikeData.positions[1].z)
+        else
+            TriggerClientEvent('ox_lib:notify', src, {
+                title = 'Spike Strip',
+                description = 'Invalid spike positions data',
+                type = 'error'
+            })
+            return
+        end
+    else
+        -- For remote deployer, use the coords directly
+        deployCoords = vector3(spikeData.coords.x, spikeData.coords.y, spikeData.coords.z)
+    end
+    
     local distance = #(playerCoords - deployCoords)
     
     if distance > 5.0 then
@@ -106,7 +124,7 @@ RegisterNetEvent('colbss-spikes:server:createSpike', function(spikeData)
             }
             
             -- Send to all clients
-            TriggerClientEvent('colbss-spikes:client:createSpike', -1, spikeId, {
+            TriggerClientEvent('colbss-spikes:client:createDeployer', -1, spikeId, {
                 type = SPIKE_TYPES.REMOTE_DEPLOYER,
                 coords = spikeData.coords,
                 heading = spikeData.heading,
@@ -153,7 +171,7 @@ RegisterNetEvent('colbss-spikes:server:createSpike', function(spikeData)
             }
             
             -- Send to all clients
-            TriggerClientEvent('colbss-spikes:client:createSpike', -1, spikeId, {
+            TriggerClientEvent('colbss-spikes:client:createStandaloneSpikes', -1, spikeId, {
                 type = SPIKE_TYPES.STANDALONE,
                 positions = spikeData.positions
             }, src)
