@@ -62,7 +62,6 @@ local function deployStandaloneSpikeStrip()
         })
         
         -- Clean up temporary props
-        Wait(1000) -- Let players see the deployment
         for i = 1, spikeLength do
             if DoesEntityExist(tempProps[i]) then
                 DeleteEntity(tempProps[i])

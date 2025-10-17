@@ -405,9 +405,6 @@ exports('useRemote', function(data)
                         tempProps[i] = deploySpikes(pos.x, pos.y, pos.z, pos.w)
                     end
                     
-                    -- Wait for deployment animation
-                    Wait(1000)
-                    
                     -- Clean up temporary props
                     for i = 1, 2 do
                         if DoesEntityExist(tempProps[i]) then
