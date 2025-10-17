@@ -3,33 +3,56 @@ OX INVENTORY ONLY
 	['spike_roll'] = {
 		label = 'Spike Strip Roll',
 		description = 'Careful its sharp',
-		weight = 2000,
+		weight = 5000,
 		stack = false,	
+		consume = 0,
+		client = {
+			export = 'colbss_spikes.useRoll'
+		},
 	},
 	
 	['spike_deployer'] = {
 		label = 'Spike Deployer',
 		description = 'Remote spike strip deployer. Requires the right frequency to activate. Thank god for modern technology',
-		weight = 5000,
+		weight = 15000,
 		stack = false,
+		consume = 0,
+		client = {
+			export = 'colbss_spikes.useDeployer'
+		},
 	},
 	
 	['spike_deployer_remote'] = {
 		label = 'Spike Remote',
 		description = 'Remote for tuning to the frequency of a spike strip deployer',
-		weight = 2000,
+		weight = 500,
 		stack = false,
+		consume = 0,
+		close = true,
+		client = {
+			export = 'colbss_spikes.useRemote'
+		},
 		buttons = {
 			{
 				label = 'Tune Frequency',
 				action = function(slot)
-					print('Tune Remote')
+					print('Remote Slot:', slot)
+					exports["colbss_spikes"]:tuneFrequency({
+						slot = slot,
+						name = 'spike_deployer_remote',
+						close = true,
+					})
 				end
 			},
 			{
 				label = 'Deploy Spikes',
 				action = function(slot)
-					print('Deploy')
+					print('Remote Slot:', slot)
+					exports["colbss_spikes"]:useRemote({
+						slot = slot,
+						name = 'spike_deployer_remote',
+						close = true,
+					})
 				end
 			}
 		}
