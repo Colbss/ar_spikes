@@ -100,16 +100,15 @@ function PlayDeployAnimation(callback)
     animationState.isPlaying = true
     animationState.currentType = 'deploy'
     
-    -- Wait for animation timing then execute callback
-    SetTimeout(800, function()
-        if callback then callback() end
-        
-        -- Clean up after animation completes
-        SetTimeout(700, function()
+    -- Wait briefly then start spike strip animation
+    SetTimeout(500, function()
+        -- Delete remote prop after spike deployment starts
+        SetTimeout(500, function()
             LocalPlayer.state:set('deployer:prop', { active = false }, true)
             animationState.isPlaying = false
             animationState.currentType = nil
         end)
+        if callback then callback() end
     end)
 end
 
