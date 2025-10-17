@@ -200,53 +200,6 @@ local function deployStandaloneSpikeStrip()
     end
 end
 
-local function deployRemoteSpikes(spikeId)
-    -- Verify with server that deployment is allowed
-    local result = lib.callback.await('colbss-spikes:server:verifyRemoteDeployment', false, spikeId)
-    
-    if not result.success then
-        return lib.notify({
-            title = 'Spike Strip',
-            description = result.message,
-            type = 'error'
-        })
-    end
-    
-    local deployerData = result.deployerData
-    
-    -- Play deploy animation with callback for actual deployment
-    exports['colbss_spikes']:PlayDeployAnimation(function()
-        -- Adjust heading to deploy spikes 90 degrees left of the deployer
-        local spikeHeading = deployerData.heading + 90.0
-        if spikeHeading >= 360.0 then
-            spikeHeading = spikeHeading - 360.0
-        end
-        
-        -- Get spike positions relative to deployer (perpendicular to deployer heading)
-        local positions = getSpikePositions(2, deployerData.coords, spikeHeading)
-        local tempProps = {}
-        
-        -- Deploy each spike strip with animation
-        for i = 1, 2 do
-            local pos = positions[i]
-            tempProps[i] = deploySpikes(pos.x, pos.y, pos.z, pos.w)
-        end
-        
-        -- Wait for deployment animation
-        Wait(1000)
-        
-        -- Clean up temporary props
-        for i = 1, 2 do
-            if DoesEntityExist(tempProps[i]) then
-                DeleteEntity(tempProps[i])
-            end
-        end
-        
-        -- Update server with new spike positions
-        TriggerServerEvent('colbss-spikes:server:updateSpikeState', spikeId, positions)
-    end)
-end
-
 local function resetRemoteDeployer(spikeId)
     -- Play reset animation (same as deployer placement)
     lib.requestAnimDict('mp_weapons_deal_sting')

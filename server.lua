@@ -49,6 +49,19 @@ RegisterNetEvent('colbss-spikes:server:createSpike', function(spikeData)
     
     if not Player then return end
     
+    local playerCoords = GetEntityCoords(GetPlayerPed(src))
+    local deployCoords = vector3(spikeData.coords.x, spikeData.coords.y, spikeData.coords.z)
+    local distance = #(playerCoords - deployCoords)
+    
+    if distance > 5.0 then
+        TriggerClientEvent('ox_lib:notify', src, {
+            title = 'Spike Strip',
+            description = 'You cannot place spikes this far away',
+            type = 'error'
+        })
+        return
+    end
+
     local spikeId = generateSpikeId()
     
     if spikeData.type == SPIKE_TYPES.REMOTE_DEPLOYER then
@@ -237,6 +250,14 @@ end)
 RegisterNetEvent('colbss-spikes:server:updateSpikeState', function(spikeId, positions)
     local src = source
     local spikeData = deployedSpikes[spikeId]
+
+    local playerCoords = GetEntityCoords(GetPlayerPed(src))
+    local deployerCoords = vector3(spikeData.coords.x, spikeData.coords.y, spikeData.coords.z)
+    local distance = #(playerCoords - deployerCoords)
+            
+    if distance > config.deployer.maxDistance then
+        return
+    end
     
     if not spikeData or spikeData.type ~= SPIKE_TYPES.REMOTE_DEPLOYER or spikeData.state ~= SPIKE_STATES.PLACED then
         return
