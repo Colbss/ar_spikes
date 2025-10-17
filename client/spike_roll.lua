@@ -168,7 +168,11 @@ exports('useRoll', function(data, slot)
             
             -- Show initial text UI
             lib.showTextUI(string.format(
-                'Current Length: %d\n[UP] Increase Length\n[DOWN] Decrease Length\n[E] Deploy Spikes\n[BACKSPACE/ESC] Cancel',
+                'Current Length: %d    \n' .. 
+                '[UP]   - Increase Length    \n' .. 
+                '[DOWN] - Decrease Length    \n'..
+                '[E]    - Deploy Spikes    \n'..
+                '[BACK] - Cancel',
                 spikeLength
             ))
             
@@ -193,7 +197,11 @@ exports('useRoll', function(data, slot)
                         if spikeLength < 4 then
                             spikeLength = spikeLength + 1
                             lib.showTextUI(string.format(
-                                'Current Length: %d\n[UP] Increase Length\n[DOWN] Decrease Length\n[E] Deploy Spikes\n[BACKSPACE/ESC] Cancel',
+                                'Current Length: %d    \n' .. 
+                                '[UP]   - Increase Length    \n' .. 
+                                '[DOWN] - Decrease Length    \n'..
+                                '[E]    - Deploy Spikes    \n'..
+                                '[BACK] - Cancel',
                                 spikeLength
                             ))
                         end
@@ -204,7 +212,11 @@ exports('useRoll', function(data, slot)
                         if spikeLength > 1 then
                             spikeLength = spikeLength - 1
                             lib.showTextUI(string.format(
-                                'Current Length: %d\n[UP] Increase Length\n[DOWN] Decrease Length\n[E] Deploy Spikes\n[BACKSPACE/ESC] Cancel',
+                                'Current Length: %d    \n' .. 
+                                '[UP]   - Increase Length    \n' .. 
+                                '[DOWN] - Decrease Length    \n'..
+                                '[E]    - Deploy Spikes    \n'..
+                                '[BACK] - Cancel',
                                 spikeLength
                             ))
                         end
