@@ -2,6 +2,118 @@ local config = require 'config'
 
 -- Deployer specific variables
 local deployedSpikes = {}
+local playerRemoteProps = {}
+
+-- Animation state management
+local animationState = {
+    isPlaying = false,
+    currentType = nil
+}
+
+-- Handle statebag changes for prop attachments
+AddStateBagChangeHandler('spikes_remote_prop', nil, function(bagName, key, value, reserved, replicated)
+    if replicated then return end
+    
+    local playerId = GetPlayerFromStateBagName(bagName)
+    if playerId == 0 then return end
+    
+    local playerPed = GetPlayerPed(playerId)
+    if not DoesEntityExist(playerPed) then return end
+    
+    -- Remove existing prop
+    if playerRemoteProps[playerId] then
+        DeleteEntity(playerRemoteProps[playerId])
+        playerRemoteProps[playerId] = nil
+    end
+    
+    -- Attach new prop if specified
+    if value and value.active then
+        local propHash = GetHashKey(config.deployer.anim.prop)
+        lib.requestModel(propHash, 5000)
+        
+        local prop = CreateObject(propHash, 0.0, 0.0, 0.0, true, true, false)
+        SetModelAsNoLongerNeeded(propHash)
+        
+        local animConfig = config.deployer.anim[value.type]
+        AttachEntityToEntity(
+            prop, playerPed, GetPedBoneIndex(playerPed, animConfig.bone),
+            animConfig.offset.x, animConfig.offset.y, animConfig.offset.z,
+            animConfig.rotation.x, animConfig.rotation.y, animConfig.rotation.z,
+            true, true, false, true, 1, true
+        )
+        
+        playerRemoteProps[playerId] = prop
+    end
+end)
+
+-- Start tune animation (loops indefinitely)
+local function StartTuneAnimation()
+    if animationState.isPlaying then return end
+    
+    local playerPed = cache.ped
+    local animConfig = config.deployer.anim.tune
+    
+    -- Set statebag for prop attachment
+    LocalPlayer.state:set('spikes_remote_prop', {
+        active = true,
+        type = 'tune'
+    }, true)
+    
+    -- Play animation
+    lib.requestAnimDict(animConfig.dict, 5000)
+    TaskPlayAnim(playerPed, animConfig.dict, animConfig.name, 4.0, -4.0, -1, animConfig.flags, 0, false, false, false)
+    
+    animationState.isPlaying = true
+    animationState.currentType = 'tune'
+end
+
+-- Stop tune animation
+local function StopTuneAnimation()
+    if not animationState.isPlaying or animationState.currentType ~= 'tune' then return end
+    
+    local playerPed = cache.ped
+    
+    -- Clear statebag
+    LocalPlayer.state:set('spikes_remote_prop', { active = false }, true)
+    
+    -- Stop animation
+    ClearPedTasks(playerPed)
+    
+    animationState.isPlaying = false
+    animationState.currentType = nil
+end
+
+-- Play deploy animation (one-time with delay)
+local function PlayDeployAnimation(callback)
+    if animationState.isPlaying then return end
+    
+    local playerPed = cache.ped
+    local animConfig = config.deployer.anim.deploy
+    
+    -- Set statebag for prop attachment
+    LocalPlayer.state:set('spikes_remote_prop', {
+        active = true,
+        type = 'deploy'
+    }, true)
+    
+    -- Play animation
+    lib.requestAnimDict(animConfig.dict, 5000)
+    TaskPlayAnim(playerPed, animConfig.dict, animConfig.name, 4.0, -4.0, 1500, animConfig.flags, 0, false, false, false)
+    
+    animationState.isPlaying = true
+    animationState.currentType = 'deploy'
+    
+    -- Wait briefly then start spike strip animation
+    SetTimeout(500, function()
+        -- Delete remote prop after spike deployment starts
+        SetTimeout(500, function()
+            LocalPlayer.state:set('spikes_remote_prop', { active = false }, true)
+            animationState.isPlaying = false
+            animationState.currentType = nil
+        end)
+        if callback then callback() end
+    end)
+end
 
 local function cleanupAllSpikes()
     for spikeId, spikeData in pairs(deployedSpikes) do
@@ -375,7 +487,7 @@ exports('useRemote', function(data)
             local frequency = data.metadata.frequency
             
             -- Always play animation regardless of outcome
-            exports['colbss_spikes']:PlayDeployAnimation(function()
+            PlayDeployAnimation(function()
                 -- Request validation from server
                 local result = lib.callback.await('colbss-spikes:server:validateRemoteDeployment', false, frequency)
                 
@@ -431,7 +543,7 @@ exports('tuneFrequency', function(data)
     exports.ox_inventory:useItem(data, function(data)
         if data then
             -- Start tune animation
-            exports['colbss_spikes']:StartTuneAnimation()
+            StartTuneAnimation()
             
             -- Show input dialog to tune the frequency
             local input = lib.inputDialog('Tune Remote Frequency', {
@@ -439,7 +551,7 @@ exports('tuneFrequency', function(data)
             })
             
             -- Stop tune animation when dialog closes
-            exports['colbss_spikes']:StopTuneAnimation()
+            StopTuneAnimation()
             
             if not input or not input[1] then return end
             
@@ -465,9 +577,22 @@ exports.ox_inventory:displayMetadata({
 AddEventHandler('onResourceStop', function(resource)
     if GetCurrentResourceName() ~= resource then return end
     cleanupAllSpikes()
+    
+    -- Clean up all props
+    for playerId, prop in pairs(playerRemoteProps) do
+        if DoesEntityExist(prop) then
+            DeleteEntity(prop)
+        end
+    end
+    
+    -- Clear own statebag
+    LocalPlayer.state:set('spikes_remote_prop', { active = false }, true)
 end)
 
 AddEventHandler('onResourceStart', function(resource)
     if GetCurrentResourceName() ~= resource then return end
     cleanupAllSpikes()
+    
+    -- Clear own statebag
+    LocalPlayer.state:set('spikes_remote_prop', { active = false }, true)
 end)

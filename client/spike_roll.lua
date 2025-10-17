@@ -7,13 +7,16 @@ local rollStateBag = nil
 local isPlacingSpikes = false
 local spikeLength = 1
 
+-- Local tracking of other players' roll props
+local playerRollProps = {}
+
 local function cleanupRoll()
     if rollProp and DoesEntityExist(rollProp) then
         DeleteEntity(rollProp)
         rollProp = nil
     end
     if rollStateBag then
-        rollStateBag:set('spikestripCarrying', false, true)
+        rollStateBag:set('spikes_carry_roll', false, true)
         rollStateBag = nil
     end
     isCarryingRoll = false
@@ -82,7 +85,7 @@ local function deployStandaloneSpikeStrip()
 end
 
 -- Statebag handler for roll carrying
-AddStateBagChangeHandler('spikestripCarrying', nil, function(bagName, key, value, reserved, replicated)
+AddStateBagChangeHandler('spikes_carry_roll', nil, function(bagName, key, value, reserved, replicated)
     if replicated then return end
     
     local playerId = GetPlayerFromStateBagName(bagName)
@@ -106,7 +109,7 @@ AddStateBagChangeHandler('spikestripCarrying', nil, function(bagName, key, value
         if playerId == PlayerId() then
             rollProp = prop
         else
-            Entity(targetPed).state.rollProp = prop
+            playerRollProps[playerId] = prop
         end
     else
         -- Player stopped carrying roll
@@ -116,11 +119,11 @@ AddStateBagChangeHandler('spikestripCarrying', nil, function(bagName, key, value
                 rollProp = nil
             end
         else
-            local prop = Entity(targetPed).state.rollProp
+            local prop = playerRollProps[playerId]
             if prop and DoesEntityExist(prop) then
                 DeleteEntity(prop)
             end
-            Entity(targetPed).state.rollProp = nil
+            playerRollProps[playerId] = nil
         end
     end
 end)
@@ -153,7 +156,7 @@ exports('useRoll', function(data, slot)
             isCarryingRoll = true
             isPlacingSpikes = true
             rollStateBag = LocalPlayer.state
-            rollStateBag:set('spikestripCarrying', true, true)
+            rollStateBag:set('spikes_carry_roll', true, true)
             
             -- Show initial text UI
             lib.showTextUI(string.format(
@@ -231,6 +234,14 @@ AddEventHandler('onResourceStop', function(resource)
     if isCarryingRoll then
         cleanupRoll()
     end
+    
+    -- Clean up all tracked roll props
+    for playerId, prop in pairs(playerRollProps) do
+        if DoesEntityExist(prop) then
+            DeleteEntity(prop)
+        end
+    end
+    playerRollProps = {}
 end)
 
 AddEventHandler('onResourceStart', function(resource)
@@ -238,4 +249,12 @@ AddEventHandler('onResourceStart', function(resource)
     if isCarryingRoll then
         cleanupRoll()
     end
+    
+    -- Clean up all tracked roll props
+    for playerId, prop in pairs(playerRollProps) do
+        if DoesEntityExist(prop) then
+            DeleteEntity(prop)
+        end
+    end
+    playerRollProps = {}
 end)
