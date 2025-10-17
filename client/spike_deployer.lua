@@ -83,6 +83,16 @@ local function StopTuneAnimation()
     animationState.currentType = nil
 end
 
+function PlayDeployRemoteSound(success)
+    local soundHandle = GetSoundId()
+    if success then
+        PlaySoundFrontend(soundHandle, "RADAR_ACTIVATE", "DLC_BTL_SECURITY_VANS_RADAR_PING_SOUNDS", true)
+    else
+        PlaySoundFrontend(soundHandle, "RADAR_READY", "DLC_BTL_SECURITY_VANS_RADAR_PING_SOUNDS", true)
+    end
+    ReleaseSoundId(soundHandle)
+end
+
 -- Play deploy animation (one-time with delay)
 local function PlayDeployAnimation(callback)
     if animationState.isPlaying then return end
@@ -208,21 +218,10 @@ RegisterNetEvent('colbss-spikes:client:createDeployer', function(spikeId, spikeD
                 return hasJobAccess(config.deployer.jobs) and deployerTargets[spikeId].state == SPIKE_STATES.PLACED
             end,
             onSelect = function()
-                local deployerCoords = GetEntityCoords(spikeData.deployer.entity)
+                local deployerCoords = GetEntityCoords(deployer)
                 FaceCoords(deployerCoords, function()
                     TriggerServerEvent('colbss-spikes:server:pickupSpike', spikeId)
                 end)
-            end
-        },
-        {
-            name = 'spike_reset_deployer',
-            icon = 'fas fa-undo',
-            label = 'Reset Deployer',
-            canInteract = function()
-                return hasJobAccess(config.deployer.jobs)
-            end,
-            onSelect = function()
-                resetRemoteDeployer(spikeId)
             end
         }
     })
@@ -426,6 +425,7 @@ exports('useRemote', function(data)
                         description = 'Deploying spikes on frequency ' .. frequency .. ' MHz...',
                         type = 'info'
                     })
+                    PlayDeployRemoteSound(true)
                     
                     local deployerData = result.deployerData
                     local spikeId = result.spikeId
@@ -456,6 +456,7 @@ exports('useRemote', function(data)
                     -- Update server with new spike positions
                     TriggerServerEvent('colbss-spikes:server:updateSpikeState', spikeId, positions)
                 else
+                    PlayDeployRemoteSound(false)
                     -- Invalid deployment - show error message
                     lib.notify({
                         description = result.message,
