@@ -417,6 +417,30 @@ RegisterNetEvent('colbss-spikes:client:removeSpike', function(spikeId)
     deployedSpikes[spikeId] = nil
 end)
 
+-- Event to remove deployer
+RegisterNetEvent('colbss-spikes:client:removeDeployer', function(spikeId)
+    local spikeData = deployedSpikes[spikeId]
+    if not spikeData then return end
+    
+    if spikeData.type == SPIKE_TYPES.REMOTE_DEPLOYER then
+        -- Remove deployer prop
+        if DoesEntityExist(spikeData.deployer.entity) then
+            exports.ox_target:removeLocalEntity(spikeData.deployer.entity)
+            DeleteEntity(spikeData.deployer.entity)
+        end
+        -- Remove deployed spikes if any
+        if spikeData.spikes then
+            for _, spike in pairs(spikeData.spikes) do
+                if DoesEntityExist(spike.entity) then
+                    DeleteEntity(spike.entity)
+                end
+            end
+        end
+    end
+    
+    deployedSpikes[spikeId] = nil
+end)
+
 -- Export for using deployer
 exports('useDeployer', function(data)
     exports.ox_inventory:useItem(data, function(data)

@@ -10,6 +10,9 @@ local spikeLength = 1
 -- Local tracking of other players' roll props
 local playerRollProps = {}
 
+-- Local tracking of standalone spikes for targets
+local standaloneSpikes = {}
+
 local function cleanupRoll()
     if rollProp and DoesEntityExist(rollProp) then
         DeleteEntity(rollProp)
@@ -224,8 +227,84 @@ RegisterNetEvent('colbss-spikes:client:createStandaloneSpikes', function(spikeId
     -- Create the spike strips using the shared function
     local spikes = createSpikeStrip(spikeData.positions, spikeId)
     
-    -- Note: Standalone spikes don't need client-side tracking since they can't be interacted with
-    -- They are cleaned up automatically when the server removes them
+    -- Store for cleanup and target management
+    standaloneSpikes[spikeId] = {
+        spikes = spikes,
+        owner = ownerServerId
+    }
+    
+    -- Create target zones for pickup - one zone covering the entire spike strip
+    if #spikes > 0 then
+        -- Use actual spike entity positions after PlaceObjectOnGroundProperly
+        local firstSpike = spikes[1]
+        local lastSpike = spikes[#spikes]
+        
+        local firstPos = GetEntityCoords(firstSpike.entity)
+        local lastPos = GetEntityCoords(lastSpike.entity)
+        
+        -- Calculate center point between first and last spike
+        local centerX = (firstPos.x + lastPos.x) / 2
+        local centerY = (firstPos.y + lastPos.y) / 2
+        local centerZ = (firstPos.z + lastPos.z) / 2
+
+        local heightDiff = math.abs(firstPos.z - lastPos.z)
+        
+        -- Calculate length of the spike strip (distance between first and last + spike width)
+        local stripLength = #(firstPos - lastPos) + 3.5
+        
+        -- Get the correct rotation - use the spike heading minus 90 degrees
+        local spikeHeading = GetEntityHeading(firstSpike.entity)
+        local zoneRotation = spikeHeading - 90.0
+        if zoneRotation < 0 then
+            zoneRotation = zoneRotation + 360.0
+        end
+        
+        -- Create target zone
+        exports.ox_target:addBoxZone({
+            coords = vector3(centerX, centerY, centerZ),
+            size = vector3(stripLength + 1.0, 1.0, math.max(1.0, heightDiff*2)), -- Extra width for easier targeting
+            rotation = zoneRotation, -- Corrected rotation
+            options = {
+                {
+                    name = 'pickup_standalone_spikes_' .. spikeId,
+                    icon = 'fas fa-hand-paper',
+                    label = 'Pick Up Spike Strips',
+                    canInteract = function()
+                        return hasJobAccess(config.roll.jobs)
+                    end,
+                    onSelect = function()
+                        TriggerServerEvent('colbss-spikes:server:pickupStandaloneSpikes', spikeId)
+                    end
+                }
+            },
+            debug = true,
+        })
+        
+        -- Store the zone name for cleanup
+        standaloneSpikes[spikeId].zoneName = 'pickup_standalone_spikes_' .. spikeId
+    end
+end)
+
+-- Event to remove standalone spike strips
+RegisterNetEvent('colbss-spikes:client:removeStandaloneSpikes', function(spikeId)
+    local spikeData = standaloneSpikes[spikeId]
+    if not spikeData then return end
+    
+    -- Remove spike entities
+    if spikeData.spikes then
+        for _, spike in pairs(spikeData.spikes) do
+            if DoesEntityExist(spike.entity) then
+                DeleteEntity(spike.entity)
+            end
+        end
+    end
+    
+    -- Remove target zone
+    if spikeData.zoneName then
+        exports.ox_target:removeZone(spikeData.zoneName)
+    end
+    
+    standaloneSpikes[spikeId] = nil
 end)
 
 -- Cleanup on resource events
@@ -242,6 +321,21 @@ AddEventHandler('onResourceStop', function(resource)
         end
     end
     playerRollProps = {}
+    
+    -- Clean up standalone spikes and target zones
+    for spikeId, spikeData in pairs(standaloneSpikes) do
+        if spikeData.spikes then
+            for _, spike in pairs(spikeData.spikes) do
+                if DoesEntityExist(spike.entity) then
+                    DeleteEntity(spike.entity)
+                end
+            end
+        end
+        if spikeData.zoneName then
+            exports.ox_target:removeZone(spikeData.zoneName)
+        end
+    end
+    standaloneSpikes = {}
 end)
 
 AddEventHandler('onResourceStart', function(resource)
@@ -257,4 +351,19 @@ AddEventHandler('onResourceStart', function(resource)
         end
     end
     playerRollProps = {}
+    
+    -- Clean up standalone spikes and target zones
+    for spikeId, spikeData in pairs(standaloneSpikes) do
+        if spikeData.spikes then
+            for _, spike in pairs(spikeData.spikes) do
+                if DoesEntityExist(spike.entity) then
+                    DeleteEntity(spike.entity)
+                end
+            end
+        end
+        if spikeData.zoneName then
+            exports.ox_target:removeZone(spikeData.zoneName)
+        end
+    end
+    standaloneSpikes = {}
 end)

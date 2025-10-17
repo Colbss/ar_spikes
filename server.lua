@@ -37,7 +37,11 @@ local function removePlayerSpikes(serverId)
     for spikeId, spikeData in pairs(deployedSpikes) do
         if spikeData.owner == serverId then
             deployedSpikes[spikeId] = nil
-            TriggerClientEvent('colbss-spikes:client:removeSpike', -1, spikeId)
+            if spikeData.type == SPIKE_TYPES.REMOTE_DEPLOYER then
+                TriggerClientEvent('colbss-spikes:client:removeDeployer', -1, spikeId)
+            elseif spikeData.type == SPIKE_TYPES.STANDALONE then
+                TriggerClientEvent('colbss-spikes:client:removeStandaloneSpikes', -1, spikeId)
+            end
         end
     end
 end
@@ -189,46 +193,6 @@ RegisterNetEvent('colbss-spikes:server:createSpike', function(spikeData)
             })
         end
     end
-end)
-
--- Callback to verify remote spike deployment
-lib.callback.register('colbss-spikes:server:verifyRemoteDeployment', function(source, spikeId)
-    local src = source
-    local Player = exports.qbx_core:GetPlayer(src)
-    
-    if not Player then
-        return { success = false, message = "Player not found" }
-    end
-    
-    local spikeData = deployedSpikes[spikeId]
-    if not spikeData or spikeData.type ~= SPIKE_TYPES.REMOTE_DEPLOYER or spikeData.state ~= SPIKE_STATES.PLACED then
-        return { 
-            success = false, 
-            message = "Deployer not found or already deployed" 
-        }
-    end
-    
-    -- Check distance from player to deployer
-    local playerCoords = GetEntityCoords(GetPlayerPed(src))
-    local deployerCoords = vector3(spikeData.coords.x, spikeData.coords.y, spikeData.coords.z)
-    local distance = #(playerCoords - deployerCoords)
-    
-    if distance > config.deployer.maxDistance then
-        return { 
-            success = false, 
-            message = string.format('Deployer is too far away (%.1fm). Max range: %.1fm', distance, config.deployer.maxDistance)
-        }
-    end
-    
-    -- Return deployer data for client-side processing
-    return { 
-        success = true, 
-        deployerData = {
-            coords = spikeData.coords,
-            heading = spikeData.heading,
-            frequency = spikeData.frequency
-        }
-    }
 end)
 
 -- Callback to validate remote deployment request
@@ -451,11 +415,80 @@ RegisterNetEvent('colbss-spikes:server:pickupSpike', function(spikeId)
     deployedSpikes[spikeId] = nil
     
     -- Tell all clients to remove this spike
-    TriggerClientEvent('colbss-spikes:client:removeSpike', -1, spikeId)
+    TriggerClientEvent('colbss-spikes:client:removeDeployer', -1, spikeId)
     
     TriggerClientEvent('ox_lib:notify', src, {
         title = 'Spike Strip',
         description = 'Equipment picked up',
+        type = 'success'
+    })
+end)
+
+-- Event to pickup standalone spike strips
+RegisterNetEvent('colbss-spikes:server:pickupStandaloneSpikes', function(spikeId)
+    local src = source
+    local Player = exports.qbx_core:GetPlayer(src)
+    
+    if not Player then return end
+    
+    local spikeData = deployedSpikes[spikeId]
+    if not spikeData then
+        return TriggerClientEvent('ox_lib:notify', src, {
+            title = 'Spike Strip',
+            description = 'Spike system not found',
+            type = 'error'
+        })
+    end
+    
+    -- Check job access for roll pickup
+    if not hasJobAccess(Player, config.roll.jobs) then
+        return TriggerClientEvent('ox_lib:notify', src, {
+            title = 'Spike Strip',
+            description = 'You do not have permission to pick up spike strips',
+            type = 'error'
+        })
+    end
+    
+    -- Only allow pickup of standalone spikes
+    if spikeData.type ~= SPIKE_TYPES.STANDALONE then
+        return TriggerClientEvent('ox_lib:notify', src, {
+            title = 'Spike Strip',
+            description = 'Invalid spike system type',
+            type = 'error'
+        })
+    end
+    
+    -- Check distance to any spike in the strip
+    local playerCoords = GetEntityCoords(GetPlayerPed(src))
+    local minDistance = math.huge
+    
+    for _, pos in ipairs(spikeData.positions) do
+        local distance = #(playerCoords - vector3(pos.x, pos.y, pos.z))
+        if distance < minDistance then
+            minDistance = distance
+        end
+    end
+    
+    if minDistance > 5.0 then
+        return TriggerClientEvent('ox_lib:notify', src, {
+            title = 'Spike Strip',
+            description = 'You are too far away',
+            type = 'error'
+        })
+    end
+    
+    -- Give back spike roll
+    exports.ox_inventory:AddItem(src, 'spike_roll', 1)
+    
+    -- Remove spike from tracking
+    deployedSpikes[spikeId] = nil
+    
+    -- Tell all clients to remove this spike
+    TriggerClientEvent('colbss-spikes:client:removeStandaloneSpikes', -1, spikeId)
+    
+    TriggerClientEvent('ox_lib:notify', src, {
+        title = 'Spike Strip',
+        description = 'Spike strips picked up',
         type = 'success'
     })
 end)
