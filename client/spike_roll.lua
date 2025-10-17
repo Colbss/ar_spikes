@@ -80,11 +80,6 @@ local function deployStandaloneSpikeStrip()
                 DeleteEntity(tempProps[i])
             end
         end
-        
-        lib.notify({
-            description = 'Spike strips deployed successfully',
-            type = 'success'
-        })
     else
         -- Progress cancelled - restart carry animation
         lib.requestAnimDict(config.roll.anim.dict)

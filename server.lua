@@ -74,7 +74,6 @@ RegisterNetEvent('colbss-spikes:server:createSpike', function(spikeData)
             deployCoords = vector3(spikeData.positions[1].x, spikeData.positions[1].y, spikeData.positions[1].z)
         else
             TriggerClientEvent('ox_lib:notify', src, {
-                title = 'Spike Strip',
                 description = 'Invalid spike positions data',
                 type = 'error'
             })
@@ -89,7 +88,6 @@ RegisterNetEvent('colbss-spikes:server:createSpike', function(spikeData)
     
     if distance > 5.0 then
         TriggerClientEvent('ox_lib:notify', src, {
-            title = 'Spike Strip',
             description = 'You cannot place spikes this far away',
             type = 'error'
         })
@@ -102,7 +100,6 @@ RegisterNetEvent('colbss-spikes:server:createSpike', function(spikeData)
         -- Check job access for deployer
         if not hasJobAccess(Player, config.deployer.jobs) then
             return TriggerClientEvent('ox_lib:notify', src, {
-                title = 'Spike Strip',
                 description = 'You do not have permission to use spike deployers',
                 type = 'error'
             })
@@ -136,13 +133,11 @@ RegisterNetEvent('colbss-spikes:server:createSpike', function(spikeData)
             }, src)
             
             TriggerClientEvent('ox_lib:notify', src, {
-                title = 'Spike Strip',
                 description = 'Spike deployer placed on frequency: ' .. frequency .. ' MHz',
                 type = 'success'
             })
         else
             TriggerClientEvent('ox_lib:notify', src, {
-                title = 'Spike Strip',
                 description = 'You don\'t have a spike deployer',
                 type = 'error'
             })
@@ -152,7 +147,6 @@ RegisterNetEvent('colbss-spikes:server:createSpike', function(spikeData)
         -- Check job access for roll
         if not hasJobAccess(Player, config.roll.jobs) then
             return TriggerClientEvent('ox_lib:notify', src, {
-                title = 'Spike Strips',
                 description = 'You do not have permission to use spike rolls',
                 type = 'error'
             })
@@ -181,13 +175,11 @@ RegisterNetEvent('colbss-spikes:server:createSpike', function(spikeData)
             }, src)
             
             TriggerClientEvent('ox_lib:notify', src, {
-                title = 'Spike Strips',
                 description = 'Spike strips deployed successfully',
                 type = 'success'
             })
         else
             TriggerClientEvent('ox_lib:notify', src, {
-                title = 'Spike Strips',
                 description = 'You don\'t have a spike roll',
                 type = 'error'
             })
@@ -283,11 +275,10 @@ RegisterNetEvent('colbss-spikes:server:updateSpikeState', function(spikeId, posi
     TriggerClientEvent('colbss-spikes:client:deployRemoteSpikes', -1, spikeId, positions)
     
     -- Notify the player
-    TriggerClientEvent('ox_lib:notify', src, {
-        title = 'Spike Strip',
-        description = 'Remote spikes deployed successfully',
-        type = 'success'
-    })
+    -- TriggerClientEvent('ox_lib:notify', src, {
+    --     description = 'Remote spikes deployed successfully',
+    --     type = 'success'
+    -- })
 end)
 
 -- Event to reset a remote deployer
@@ -300,7 +291,6 @@ RegisterNetEvent('colbss-spikes:server:resetDeployer', function(spikeId)
     local spikeData = deployedSpikes[spikeId]
     if not spikeData then
         return TriggerClientEvent('ox_lib:notify', src, {
-            title = 'Spike Strip',
             description = 'Deployer not found',
             type = 'error'
         })
@@ -309,7 +299,6 @@ RegisterNetEvent('colbss-spikes:server:resetDeployer', function(spikeId)
     -- Check job access instead of ownership
     if not hasJobAccess(Player, config.deployer.jobs) then
         return TriggerClientEvent('ox_lib:notify', src, {
-            title = 'Spike Strip',
             description = 'You do not have permission to reset deployers',
             type = 'error'
         })
@@ -318,7 +307,6 @@ RegisterNetEvent('colbss-spikes:server:resetDeployer', function(spikeId)
     -- Only allow reset of deployed remote deployers
     if spikeData.type ~= SPIKE_TYPES.REMOTE_DEPLOYER or spikeData.state ~= SPIKE_STATES.DEPLOYED then
         return TriggerClientEvent('ox_lib:notify', src, {
-            title = 'Spike Strip',
             description = 'Deployer is not deployed or invalid',
             type = 'error'
         })
@@ -331,7 +319,6 @@ RegisterNetEvent('colbss-spikes:server:resetDeployer', function(spikeId)
     
     if distance > 5.0 then
         return TriggerClientEvent('ox_lib:notify', src, {
-            title = 'Spike Strip',
             description = 'You are too far away from the deployer',
             type = 'error'
         })
@@ -345,7 +332,6 @@ RegisterNetEvent('colbss-spikes:server:resetDeployer', function(spikeId)
     TriggerClientEvent('colbss-spikes:client:resetDeployer', -1, spikeId)
     
     TriggerClientEvent('ox_lib:notify', src, {
-        title = 'Spike Strip',
         description = 'Deployer reset successfully',
         type = 'success'
     })
@@ -370,7 +356,6 @@ RegisterNetEvent('colbss-spikes:server:pickupSpike', function(spikeId)
     local spikeData = deployedSpikes[spikeId]
     if not spikeData then
         return TriggerClientEvent('ox_lib:notify', src, {
-            title = 'Spike Strip',
             description = 'Spike system not found',
             type = 'error'
         })
@@ -379,7 +364,6 @@ RegisterNetEvent('colbss-spikes:server:pickupSpike', function(spikeId)
     -- Check job access instead of ownership
     if not hasJobAccess(Player, config.deployer.jobs) then
         return TriggerClientEvent('ox_lib:notify', src, {
-            title = 'Spike Strip',
             description = 'You do not have permission to pick up equipment',
             type = 'error'
         })
@@ -388,7 +372,6 @@ RegisterNetEvent('colbss-spikes:server:pickupSpike', function(spikeId)
     -- Only allow pickup of remote deployers that haven't deployed spikes
     if spikeData.type ~= SPIKE_TYPES.REMOTE_DEPLOYER or spikeData.state ~= SPIKE_STATES.PLACED then
         return TriggerClientEvent('ox_lib:notify', src, {
-            title = 'Spike Strip',
             description = 'Cannot pick up deployed spike systems',
             type = 'error'
         })
@@ -400,7 +383,6 @@ RegisterNetEvent('colbss-spikes:server:pickupSpike', function(spikeId)
     
     if distance > 5.0 then
         return TriggerClientEvent('ox_lib:notify', src, {
-            title = 'Spike Strip',
             description = 'You are too far away',
             type = 'error'
         })
@@ -418,7 +400,6 @@ RegisterNetEvent('colbss-spikes:server:pickupSpike', function(spikeId)
     TriggerClientEvent('colbss-spikes:client:removeDeployer', -1, spikeId)
     
     TriggerClientEvent('ox_lib:notify', src, {
-        title = 'Spike Strip',
         description = 'Equipment picked up',
         type = 'success'
     })
@@ -434,7 +415,6 @@ RegisterNetEvent('colbss-spikes:server:pickupStandaloneSpikes', function(spikeId
     local spikeData = deployedSpikes[spikeId]
     if not spikeData then
         return TriggerClientEvent('ox_lib:notify', src, {
-            title = 'Spike Strip',
             description = 'Spike system not found',
             type = 'error'
         })
@@ -443,7 +423,6 @@ RegisterNetEvent('colbss-spikes:server:pickupStandaloneSpikes', function(spikeId
     -- Check job access for roll pickup
     if not hasJobAccess(Player, config.roll.jobs) then
         return TriggerClientEvent('ox_lib:notify', src, {
-            title = 'Spike Strip',
             description = 'You do not have permission to pick up spike strips',
             type = 'error'
         })
@@ -452,7 +431,6 @@ RegisterNetEvent('colbss-spikes:server:pickupStandaloneSpikes', function(spikeId
     -- Only allow pickup of standalone spikes
     if spikeData.type ~= SPIKE_TYPES.STANDALONE then
         return TriggerClientEvent('ox_lib:notify', src, {
-            title = 'Spike Strip',
             description = 'Invalid spike system type',
             type = 'error'
         })
@@ -471,7 +449,6 @@ RegisterNetEvent('colbss-spikes:server:pickupStandaloneSpikes', function(spikeId
     
     if minDistance > 5.0 then
         return TriggerClientEvent('ox_lib:notify', src, {
-            title = 'Spike Strip',
             description = 'You are too far away',
             type = 'error'
         })
@@ -487,7 +464,6 @@ RegisterNetEvent('colbss-spikes:server:pickupStandaloneSpikes', function(spikeId
     TriggerClientEvent('colbss-spikes:client:removeStandaloneSpikes', -1, spikeId)
     
     TriggerClientEvent('ox_lib:notify', src, {
-        title = 'Spike Strip',
         description = 'Spike strips picked up',
         type = 'success'
     })

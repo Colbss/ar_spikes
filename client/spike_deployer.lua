@@ -204,7 +204,6 @@ RegisterNetEvent('colbss-spikes:client:createDeployer', function(spikeId, spikeD
             label = 'Get Frequency',
             onSelect = function()
                 lib.notify({
-                    title = 'Spike Strip Deployer',
                     description = 'Frequency: ' .. spikeData.frequency .. ' MHz',
                     type = 'inform'
                 })
@@ -253,7 +252,6 @@ RegisterNetEvent('colbss-spikes:client:deployRemoteSpikes', function(spikeId, po
                 label = 'Get Frequency',
                 onSelect = function()
                     lib.notify({
-                        title = 'Spike Strip Deployer',
                         description = 'Frequency: ' .. targetData.frequency .. ' MHz',
                         type = 'inform'
                     })
@@ -305,7 +303,6 @@ RegisterNetEvent('colbss-spikes:client:resetDeployer', function(spikeId)
                 label = 'Get Frequency',
                 onSelect = function()
                     lib.notify({
-                        title = 'Spike Strip Deployer',
                         description = 'Frequency: ' .. targetData.frequency .. ' MHz',
                         type = 'inform'
                     })
@@ -352,6 +349,13 @@ exports('useDeployer', function(data)
             if cache.vehicle then
                 return lib.notify({
                     description = 'You cannot deploy in a vehicle.',
+                    type = 'error'
+                })
+            end
+
+            if not hasJobAccess(config.deployer.jobs) then
+                return lib.notify({
+                    description = 'You do not have permission to use the Spike Deployer.',
                     type = 'error'
                 })
             end
@@ -421,10 +425,10 @@ exports('useRemote', function(data)
                 
                 if result.success then
                     -- Valid deployment - proceed with spike deployment
-                    lib.notify({
-                        description = 'Deploying spikes on frequency ' .. frequency .. ' MHz...',
-                        type = 'info'
-                    })
+                    -- lib.notify({
+                    --     description = 'Deploying spikes on frequency ' .. frequency .. ' MHz...',
+                    --     type = 'info'
+                    -- })
                     PlayDeployRemoteSound(true)
                     
                     local deployerData = result.deployerData
@@ -458,10 +462,10 @@ exports('useRemote', function(data)
                 else
                     PlayDeployRemoteSound(false)
                     -- Invalid deployment - show error message
-                    lib.notify({
-                        description = result.message,
-                        type = 'inform'
-                    })
+                    -- lib.notify({
+                    --     description = result.message,
+                    --     type = 'inform'
+                    -- })
                 end
             end)
         end
