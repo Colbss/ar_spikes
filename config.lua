@@ -7,7 +7,7 @@ return {
             min = 100,
             max = 999,
         },
-        maxDistance = 100.0, -- Max distance to deploy spikes
+        maxDistance = 200.0, -- Max distance to deploy spikes
         anim = {
             prop = 'deployer_remote',
             tune = {

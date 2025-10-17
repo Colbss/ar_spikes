@@ -25,5 +25,11 @@ server_scripts {
 }
 
 files {
-    'config.lua'
+    'config.lua',
+    'sounds/dlc_stinger/stinger.awc',
+	'sounds/data/stinger.dat54.rel',
 }
+
+data_file 'DLC_ITYP_REQUEST' 'spike_deployer.ytyp'
+data_file "AUDIO_WAVEPACK" "sounds/dlc_stinger"
+data_file "AUDIO_SOUNDDATA" "sounds/data/stinger.dat"
