@@ -228,6 +228,19 @@ local function resetRemoteDeployer(spikeId)
     end
 end
 
+local function hasJobAccess(jobConfig)
+    if not jobConfig then return true end -- No job restriction
+    
+    local PlayerData = exports.qbx_core:GetPlayerData()
+    if not PlayerData or not PlayerData.job then return false end
+    
+    local playerJob = PlayerData.job
+    local requiredGrade = jobConfig[playerJob.name]
+    if not requiredGrade then return false end
+    
+    return playerJob.grade.level >= requiredGrade
+end
+
 -- Statebag handler for roll carrying
 AddStateBagChangeHandler('spikestripCarrying', nil, function(bagName, key, value, reserved, replicated)
     if replicated then return end
@@ -317,7 +330,7 @@ RegisterNetEvent('colbss-spikes:client:createSpike', function(spikeId, spikeData
                 icon = 'fas fa-hand-paper',
                 label = 'Pick Up Deployer',
                 canInteract = function()
-                    return ownerServerId == cache.serverId and deployedSpikes[spikeId].state == SPIKE_STATES.PLACED
+                    return hasJobAccess(config.deployer.jobs) and deployedSpikes[spikeId].state == SPIKE_STATES.PLACED
                 end,
                 onSelect = function()
                     TriggerServerEvent('colbss-spikes:server:pickupSpike', spikeId)
@@ -328,7 +341,7 @@ RegisterNetEvent('colbss-spikes:client:createSpike', function(spikeId, spikeData
                 icon = 'fas fa-undo',
                 label = 'Reset Deployer',
                 canInteract = function()
-                    return spikeData.owner == cache.serverId
+                    return hasJobAccess(config.deployer.jobs)
                 end,
                 onSelect = function()
                     resetRemoteDeployer(spikeId)
@@ -385,7 +398,7 @@ RegisterNetEvent('colbss-spikes:client:deployRemoteSpikes', function(spikeId, po
                 icon = 'fas fa-undo',
                 label = 'Reset Deployer',
                 canInteract = function()
-                    return spikeData.owner == cache.serverId
+                    return hasJobAccess(config.deployer.jobs)
                 end,
                 onSelect = function()
                     resetRemoteDeployer(spikeId)
@@ -436,7 +449,7 @@ RegisterNetEvent('colbss-spikes:client:resetDeployer', function(spikeId)
                 icon = 'fas fa-hand-paper',
                 label = 'Pick Up Deployer',
                 canInteract = function()
-                    return spikeData.owner == cache.serverId and deployedSpikes[spikeId].state == SPIKE_STATES.PLACED
+                    return hasJobAccess(config.deployer.jobs) and deployedSpikes[spikeId].state == SPIKE_STATES.PLACED
                 end,
                 onSelect = function()
                     TriggerServerEvent('colbss-spikes:server:pickupSpike', spikeId)

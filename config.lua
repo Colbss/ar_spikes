@@ -27,6 +27,9 @@ return {
                 flags = 48,
             }
 
+        },
+        jobs = { -- job, min rank
+            ['police'] = 2,
         }
     },
 
@@ -39,7 +42,8 @@ return {
             rotation = vec3(0.0, 0.0, 0.0),
             dict = 'move_weapon@jerrycan@generic',
             name = 'idle',
-        }
+        },
+        jobs = nil,
     },
 
     immune = { -- Vehicles immune to spike strips

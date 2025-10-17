@@ -42,6 +42,18 @@ local function removePlayerSpikes(serverId)
     end
 end
 
+local function hasJobAccess(Player, jobConfig)
+    if not jobConfig then return true end -- No job restriction
+    
+    local playerJob = Player.PlayerData.job
+    if not playerJob then return false end
+    
+    local requiredGrade = jobConfig[playerJob.name]
+    if not requiredGrade then return false end
+    
+    return playerJob.grade.level >= requiredGrade
+end
+
 -- Unified event to create any spike type
 RegisterNetEvent('colbss-spikes:server:createSpike', function(spikeData)
     local src = source
@@ -65,6 +77,15 @@ RegisterNetEvent('colbss-spikes:server:createSpike', function(spikeData)
     local spikeId = generateSpikeId()
     
     if spikeData.type == SPIKE_TYPES.REMOTE_DEPLOYER then
+        -- Check job access for deployer
+        if not hasJobAccess(Player, config.deployer.jobs) then
+            return TriggerClientEvent('ox_lib:notify', src, {
+                title = 'Spike Strip',
+                description = 'You do not have permission to use spike deployers',
+                type = 'error'
+            })
+        end
+        
         -- Handle remote deployer
         local hasItem = exports.ox_inventory:GetItem(src, 'spike_deployer', nil, true)
         
@@ -106,6 +127,15 @@ RegisterNetEvent('colbss-spikes:server:createSpike', function(spikeData)
         end
         
     elseif spikeData.type == SPIKE_TYPES.STANDALONE then
+        -- Check job access for roll
+        if not hasJobAccess(Player, config.roll.jobs) then
+            return TriggerClientEvent('ox_lib:notify', src, {
+                title = 'Spike Strips',
+                description = 'You do not have permission to use spike rolls',
+                type = 'error'
+            })
+        end
+        
         -- Handle standalone spike strip
         local hasItem = exports.ox_inventory:GetItem(src, 'spike_roll', nil, true)
         
@@ -294,11 +324,11 @@ RegisterNetEvent('colbss-spikes:server:resetDeployer', function(spikeId)
         })
     end
     
-    -- Check if player is the owner
-    if spikeData.owner ~= src then
+    -- Check job access instead of ownership
+    if not hasJobAccess(Player, config.deployer.jobs) then
         return TriggerClientEvent('ox_lib:notify', src, {
             title = 'Spike Strip',
-            description = 'You can only reset your own deployer',
+            description = 'You do not have permission to reset deployers',
             type = 'error'
         })
     end
@@ -364,11 +394,11 @@ RegisterNetEvent('colbss-spikes:server:pickupSpike', function(spikeId)
         })
     end
     
-    -- Check if player is the owner
-    if spikeData.owner ~= src then
+    -- Check job access instead of ownership
+    if not hasJobAccess(Player, config.deployer.jobs) then
         return TriggerClientEvent('ox_lib:notify', src, {
             title = 'Spike Strip',
-            description = 'You can only pick up your own equipment',
+            description = 'You do not have permission to pick up equipment',
             type = 'error'
         })
     end
