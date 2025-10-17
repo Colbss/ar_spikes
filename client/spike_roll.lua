@@ -390,26 +390,3 @@ AddEventHandler('onResourceStop', function(resource)
     end
     standaloneTargets = {}
 end)
-
-AddEventHandler('onResourceStart', function(resource)
-    if GetCurrentResourceName() ~= resource then return end
-    if isCarryingRoll then
-        cleanupRoll()
-    end
-    
-    -- Clean up all tracked roll props
-    for playerId, prop in pairs(playerRollProps) do
-        if DoesEntityExist(prop) then
-            DeleteEntity(prop)
-        end
-    end
-    playerRollProps = {}
-    
-    -- Clean up target zones only (spikes handled by unified system)
-    for spikeId, targetData in pairs(standaloneTargets) do
-        if targetData.zoneId then
-            exports.ox_target:removeZone(targetData.zoneId)
-        end
-    end
-    standaloneTargets = {}
-end)

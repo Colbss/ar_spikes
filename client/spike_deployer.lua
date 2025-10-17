@@ -115,7 +115,7 @@ local function PlayDeployAnimation(callback)
     end)
 end
 
-local function cleanupAllSpikes()
+local function RemoveSpikeTargets()
     -- Clean up all deployer targets and entities
     for spikeId, targetData in pairs(deployerTargets) do
         if targetData.deployer and DoesEntityExist(targetData.deployer.entity) then
@@ -505,7 +505,7 @@ exports.ox_inventory:displayMetadata({
 -- Cleanup on resource events
 AddEventHandler('onResourceStop', function(resource)
     if GetCurrentResourceName() ~= resource then return end
-    cleanupAllSpikes()
+    RemoveSpikeTargets()
     
     -- Clean up all props
     for playerId, prop in pairs(playerRemoteProps) do
@@ -513,14 +513,6 @@ AddEventHandler('onResourceStop', function(resource)
             DeleteEntity(prop)
         end
     end
-    
-    -- Clear own statebag
-    LocalPlayer.state:set('spikes_remote_prop', { active = false }, true)
-end)
-
-AddEventHandler('onResourceStart', function(resource)
-    if GetCurrentResourceName() ~= resource then return end
-    cleanupAllSpikes()
     
     -- Clear own statebag
     LocalPlayer.state:set('spikes_remote_prop', { active = false }, true)
