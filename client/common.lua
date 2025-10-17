@@ -108,6 +108,48 @@ function hasJobAccess(jobConfig)
     return playerJob.grade.level >= requiredGrade
 end
 
+-- Heading calculation functions
+function HeadingToCoords(ped, coords) 
+	local from = GetEntityCoords(ped)
+	local to = coords       		
+	local dx = to.x - from.x
+	local dy = to.y - from.y
+	local heading = GetHeadingFromVector_2d(dx, dy)
+    return heading
+end
+
+function CalculateHeadingDifference(heading1, heading2)
+    local diff = math.abs(heading1 - heading2) % 360
+    if diff > 180 then
+        diff = 360 - diff
+    end
+    return diff
+end
+
+function IsPlayerFacingHeading(ped, heading, threshold)
+    local playerHeading = GetEntityHeading(ped)
+    local difference = CalculateHeadingDifference(playerHeading, heading)
+    return difference <= threshold
+end
+
+function FaceCoords(coords, callback)
+    local heading = HeadingToCoords(cache.ped, coords)
+    TaskAchieveHeading(cache.ped, heading, 3000)
+    local startTime = GetGameTimer()
+    
+    CreateThread(function()
+        while GetGameTimer() - startTime < 3000 do
+            if IsPlayerFacingHeading(cache.ped, heading, 10) then
+                break
+            end
+            TaskAchieveHeading(cache.ped, heading, 3000)
+            Wait(100)
+        end
+        
+        if callback then callback() end
+    end)
+end
+
 -- Cleanup on resource stop
 AddEventHandler('onResourceStop', function(resourceName)
     if resourceName ~= GetCurrentResourceName() then return end

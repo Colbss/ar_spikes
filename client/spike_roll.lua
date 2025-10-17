@@ -278,31 +278,45 @@ RegisterNetEvent('colbss-spikes:client:createStandaloneSpikes', function(spikeId
                         return hasJobAccess(config.roll.jobs)
                     end,
                     onSelect = function()
-                        -- Start pickup animation
-                        lib.requestAnimDict('mp_weapons_deal_sting')
-                        TaskPlayAnim(cache.ped, 'mp_weapons_deal_sting', 'crackhead_bag_loop', 4.0, -4.0, -1, 1, 0, false, false, false)
+                        -- Calculate center of spike strip for facing
+                        local firstSpike = spikes[1]
+                        local lastSpike = spikes[#spikes]
+                        local firstPos = GetEntityCoords(firstSpike.entity)
+                        local lastPos = GetEntityCoords(lastSpike.entity)
+                        local centerCoords = vector3(
+                            (firstPos.x + lastPos.x) / 2,
+                            (firstPos.y + lastPos.y) / 2,
+                            (firstPos.z + lastPos.z) / 2
+                        )
                         
-                        -- Show progress bar
-                        if lib.progressBar({
-                            duration = 3000,
-                            label = 'Picking up spike strips...',
-                            useWhileDead = false,
-                            allowCuffed = false,
-                            allowSwimming = false,
-                            canCancel = true,
-                            disable = {
-                                car = true,
-                                move = true,
-                                combat = true
-                            }
-                        }) then
-                            -- Progress completed successfully
-                            ClearPedTasks(cache.ped)
-                            TriggerServerEvent('colbss-spikes:server:pickupStandaloneSpikes', spikeId)
-                        else
-                            -- Progress was cancelled
-                            ClearPedTasks(cache.ped)
-                        end
+                        -- Face the spike strip first
+                        FaceCoords(centerCoords, function()
+                            -- Start pickup animation
+                            lib.requestAnimDict('mp_weapons_deal_sting')
+                            TaskPlayAnim(cache.ped, 'mp_weapons_deal_sting', 'crackhead_bag_loop', 4.0, -4.0, -1, 1, 0, false, false, false)
+                            
+                            -- Show progress bar
+                            if lib.progressBar({
+                                duration = 3000,
+                                label = 'Picking up spike strips...',
+                                useWhileDead = false,
+                                allowCuffed = false,
+                                allowSwimming = false,
+                                canCancel = true,
+                                disable = {
+                                    car = true,
+                                    move = true,
+                                    combat = true
+                                }
+                            }) then
+                                -- Progress completed successfully
+                                ClearPedTasks(cache.ped)
+                                TriggerServerEvent('colbss-spikes:server:pickupStandaloneSpikes', spikeId)
+                            else
+                                -- Progress was cancelled
+                                ClearPedTasks(cache.ped)
+                            end
+                        end)
                     end
                 }
             }

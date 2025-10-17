@@ -137,31 +137,39 @@ local function cleanupAllSpikes()
 end
 
 local function resetRemoteDeployer(spikeId)
-    -- Play reset animation (same as deployer placement)
-    lib.requestAnimDict('mp_weapons_deal_sting')
-    TaskPlayAnim(cache.ped, 'mp_weapons_deal_sting', 'crackhead_bag_loop', 4.0, -4.0, -1, 1, 0, false, false, false)
+    local spikeData = deployedSpikes[spikeId]
+    if not spikeData then return end
     
-    -- Show progress bar
-    if lib.progressBar({
-        duration = 3000,
-        label = 'Resetting Spike Deployer...',
-        useWhileDead = false,
-        allowCuffed = false,
-        allowSwimming = false,
-        canCancel = true,
-        disable = {
-            car = true,
-            move = true,
-            combat = true
-        }
-    }) then
-        -- Progress completed successfully
-        ClearPedTasks(cache.ped)
-        TriggerServerEvent('colbss-spikes:server:resetDeployer', spikeId)
-    else
-        -- Progress was cancelled
-        ClearPedTasks(cache.ped)
-    end
+    local deployerCoords = GetEntityCoords(spikeData.deployer.entity)
+    
+    -- Face the deployer first
+    FaceCoords(deployerCoords, function()
+        -- Play reset animation (same as deployer placement)
+        lib.requestAnimDict('mp_weapons_deal_sting')
+        TaskPlayAnim(cache.ped, 'mp_weapons_deal_sting', 'crackhead_bag_loop', 4.0, -4.0, -1, 1, 0, false, false, false)
+        
+        -- Show progress bar
+        if lib.progressBar({
+            duration = 3000,
+            label = 'Resetting Spike Deployer...',
+            useWhileDead = false,
+            allowCuffed = false,
+            allowSwimming = false,
+            canCancel = true,
+            disable = {
+                car = true,
+                move = true,
+                combat = true
+            }
+        }) then
+            -- Progress completed successfully
+            ClearPedTasks(cache.ped)
+            TriggerServerEvent('colbss-spikes:server:resetDeployer', spikeId)
+        else
+            -- Progress was cancelled
+            ClearPedTasks(cache.ped)
+        end
+    end)
 end
 
 -- Event to create remote deployer
@@ -211,7 +219,10 @@ RegisterNetEvent('colbss-spikes:client:createDeployer', function(spikeId, spikeD
                 return hasJobAccess(config.deployer.jobs) and deployedSpikes[spikeId].state == SPIKE_STATES.PLACED
             end,
             onSelect = function()
-                TriggerServerEvent('colbss-spikes:server:pickupSpike', spikeId)
+                local deployerCoords = GetEntityCoords(spikeData.deployer.entity)
+                FaceCoords(deployerCoords, function()
+                    TriggerServerEvent('colbss-spikes:server:pickupSpike', spikeId)
+                end)
             end
         },
         {
