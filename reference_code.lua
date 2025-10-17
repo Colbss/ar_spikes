@@ -79,7 +79,7 @@ function GetSpikeLocations(num)
 		positions[i] = vec4(pos.x, pos.y, pos.z, h)
 		tempProps[i] = DeploySpikes(pos.x, pos.y, pos.z, h)
 	end
-	lib.callback.await('spikes:server:newspikes', false, positions)
+	lib.callback.await('colbss-spikes:server:newspikes', false, positions)
 	for i = 1, num do
 		DeleteEntity(tempProps[i])
 	end
@@ -207,7 +207,7 @@ function PickupStinger(id)
 		if isOpen and text == '[E] Pick Up Stinger Spikes' then
 			lib.hideTextUI()
 		end
-		TriggerServerEvent('spikes:server:pickup', id)
+		TriggerServerEvent('colbss-spikes:server:pickup', id)
 	else
 		exports.qbx_core:Notify('Canceled')
 	end
@@ -273,7 +273,7 @@ function NewSpikes(id, coords)
 end
 
 exports('spikes', function(data, slot)
-	local hasspike = lib.callback.await('spikes:server:hasspikes', false, slot.slot)
+	local hasspike = lib.callback.await('colbss-spikes:server:hasspikes', false, slot.slot)
 	if hasspike then
 		PlaceSpikes()
 	else
@@ -391,11 +391,11 @@ end)
 -- | |___  \ V / | |___| |\  | | |  ___) |
 -- |_____|  \_/  |_____|_| \_| |_| |____/ 
 									
-RegisterNetEvent('spikes:client:newspikes', function(id, coords)
+RegisterNetEvent('colbss-spikes:client:newspikes', function(id, coords)
 	NewSpikes(id, coords)    
 end)
 
-RegisterNetEvent('spikes:client:delete', function(id)
+RegisterNetEvent('colbss-spikes:client:delete', function(id)
 	if spikes[id] then
 		sdata = spikes[id]
 		for _, s in pairs(sdata.data) do
@@ -407,7 +407,7 @@ end)
 
 RegisterNetEvent('QBCore:Client:OnPlayerLoaded', function()
 	Wait(2000)
-    local data = lib.callback.await('spikes:server:data', false)
+    local data = lib.callback.await('colbss-spikes:server:data', false)
 	if data ~= nil then
 		for id, coords in pairs(data) do
 			NewSpikes(id, coords)

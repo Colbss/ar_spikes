@@ -37,13 +37,13 @@ local function removePlayerSpikes(serverId)
     for spikeId, spikeData in pairs(deployedSpikes) do
         if spikeData.owner == serverId then
             deployedSpikes[spikeId] = nil
-            TriggerClientEvent('spikes:client:removeSpike', -1, spikeId)
+            TriggerClientEvent('colbss-spikes:client:removeSpike', -1, spikeId)
         end
     end
 end
 
 -- Unified event to create any spike type
-RegisterNetEvent('spikes:server:createSpike', function(spikeData)
+RegisterNetEvent('colbss-spikes:server:createSpike', function(spikeData)
     local src = source
     local Player = exports.qbx_core:GetPlayer(src)
     
@@ -72,7 +72,7 @@ RegisterNetEvent('spikes:server:createSpike', function(spikeData)
             }
             
             -- Send to all clients
-            TriggerClientEvent('spikes:client:createSpike', -1, spikeId, {
+            TriggerClientEvent('colbss-spikes:client:createSpike', -1, spikeId, {
                 type = SPIKE_TYPES.REMOTE_DEPLOYER,
                 coords = spikeData.coords,
                 heading = spikeData.heading,
@@ -110,7 +110,7 @@ RegisterNetEvent('spikes:server:createSpike', function(spikeData)
             }
             
             -- Send to all clients
-            TriggerClientEvent('spikes:client:createSpike', -1, spikeId, {
+            TriggerClientEvent('colbss-spikes:client:createSpike', -1, spikeId, {
                 type = SPIKE_TYPES.STANDALONE,
                 positions = spikeData.positions
             }, src)
@@ -131,7 +131,7 @@ RegisterNetEvent('spikes:server:createSpike', function(spikeData)
 end)
 
 -- Callback to verify remote spike deployment
-lib.callback.register('spikes:server:verifyRemoteDeployment', function(source, spikeId)
+lib.callback.register('colbss-spikes:server:verifyRemoteDeployment', function(source, spikeId)
     local src = source
     local Player = exports.qbx_core:GetPlayer(src)
     
@@ -171,7 +171,7 @@ lib.callback.register('spikes:server:verifyRemoteDeployment', function(source, s
 end)
 
 -- Event to update spike state after client deployment
-RegisterNetEvent('spikes:server:updateSpikeState', function(spikeId, positions)
+RegisterNetEvent('colbss-spikes:server:updateSpikeState', function(spikeId, positions)
     local src = source
     local spikeData = deployedSpikes[spikeId]
     
@@ -184,7 +184,7 @@ RegisterNetEvent('spikes:server:updateSpikeState', function(spikeId, positions)
     deployedSpikes[spikeId].positions = positions
     
     -- Tell all clients to deploy the spikes
-    TriggerClientEvent('spikes:client:deployRemoteSpikes', -1, spikeId, positions)
+    TriggerClientEvent('colbss-spikes:client:deployRemoteSpikes', -1, spikeId, positions)
     
     -- Notify the player
     TriggerClientEvent('ox_lib:notify', src, {
@@ -195,7 +195,7 @@ RegisterNetEvent('spikes:server:updateSpikeState', function(spikeId, positions)
 end)
 
 -- Event to reset a remote deployer
-RegisterNetEvent('spikes:server:resetDeployer', function(spikeId)
+RegisterNetEvent('colbss-spikes:server:resetDeployer', function(spikeId)
     local src = source
     local Player = exports.qbx_core:GetPlayer(src)
     
@@ -246,7 +246,7 @@ RegisterNetEvent('spikes:server:resetDeployer', function(spikeId)
     deployedSpikes[spikeId].positions = nil
     
     -- Tell all clients to reset the deployer
-    TriggerClientEvent('spikes:client:resetDeployer', -1, spikeId)
+    TriggerClientEvent('colbss-spikes:client:resetDeployer', -1, spikeId)
     
     TriggerClientEvent('ox_lib:notify', src, {
         title = 'Spike Strip',
@@ -255,7 +255,7 @@ RegisterNetEvent('spikes:server:resetDeployer', function(spikeId)
     })
 end)
 
-RegisterNetEvent('spikes:server:tuneRemoteFrequency', function(slot, frequency)
+RegisterNetEvent('colbss-spikes:server:tuneRemoteFrequency', function(slot, frequency)
     local src = source
     
     -- Verify item ownership again (for security)
@@ -265,7 +265,7 @@ RegisterNetEvent('spikes:server:tuneRemoteFrequency', function(slot, frequency)
     end
 end)
 
-RegisterNetEvent('spikes:server:pickupSpike', function(spikeId)
+RegisterNetEvent('colbss-spikes:server:pickupSpike', function(spikeId)
     local src = source
     local Player = exports.qbx_core:GetPlayer(src)
     
@@ -319,7 +319,7 @@ RegisterNetEvent('spikes:server:pickupSpike', function(spikeId)
     deployedSpikes[spikeId] = nil
     
     -- Tell all clients to remove this spike
-    TriggerClientEvent('spikes:client:removeSpike', -1, spikeId)
+    TriggerClientEvent('colbss-spikes:client:removeSpike', -1, spikeId)
     
     TriggerClientEvent('ox_lib:notify', src, {
         title = 'Spike Strip',

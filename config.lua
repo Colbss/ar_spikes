@@ -8,6 +8,24 @@ return {
             max = 999,
         },
         maxDistance = 100.0, -- Max distance to deploy spikes
+        anim = {
+            prop = 'deployer_remote',
+            use = {
+                bone = 28422,
+                offset = vec3(0.00, 0.01, 0.0),
+                rotation = vec3(99.41, -3.64, -0.60),
+                dict = 'cellphone@',
+                name = 'cellphone_text_read_base',
+            },
+            deploy = {
+                bone = 28422,
+                offset = vec3(0.0, 0.01, 0.0),
+                rotation = vec3(0.0, 0.0, 0.0),
+                dict = 'anim@mp_player_intmenu@key_fob@', 
+                name = 'fob_click',
+            }
+
+        }
     },
 
     roll = { -- Spike Strip Roll

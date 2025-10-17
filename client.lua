@@ -173,7 +173,7 @@ local function deployStandaloneSpikeStrip()
         end
         
         -- Send to server to create permanent spikes
-        TriggerServerEvent('spikes:server:createSpike', {
+        TriggerServerEvent('colbss-spikes:server:createSpike', {
             type = SPIKE_TYPES.STANDALONE,
             positions = positions,
             length = spikeLength
@@ -202,7 +202,7 @@ end
 
 local function deployRemoteSpikes(spikeId)
     -- Verify with server that deployment is allowed
-    local result = lib.callback.await('spikes:server:verifyRemoteDeployment', false, spikeId)
+    local result = lib.callback.await('colbss-spikes:server:verifyRemoteDeployment', false, spikeId)
     
     if not result.success then
         return lib.notify({
@@ -241,7 +241,7 @@ local function deployRemoteSpikes(spikeId)
     end
     
     -- Update server with new spike positions
-    TriggerServerEvent('spikes:server:updateSpikeState', spikeId, positions)
+    TriggerServerEvent('colbss-spikes:server:updateSpikeState', spikeId, positions)
 end
 
 -- Statebag handler for roll carrying
@@ -289,7 +289,7 @@ AddStateBagChangeHandler('spikestripCarrying', nil, function(bagName, key, value
 end)
 
 -- Unified event to create any spike type
-RegisterNetEvent('spikes:client:createSpike', function(spikeId, spikeData, ownerServerId)
+RegisterNetEvent('colbss-spikes:client:createSpike', function(spikeId, spikeData, ownerServerId)
     if spikeData.type == SPIKE_TYPES.REMOTE_DEPLOYER then
         -- Create remote deployer prop
         local deployerModel = GetHashKey(config.deployer.prop)
@@ -336,7 +336,7 @@ RegisterNetEvent('spikes:client:createSpike', function(spikeId, spikeData, owner
                     return ownerServerId == cache.serverId and deployedSpikes[spikeId].state == SPIKE_STATES.PLACED
                 end,
                 onSelect = function()
-                    TriggerServerEvent('spikes:server:pickupSpike', spikeId)
+                    TriggerServerEvent('colbss-spikes:server:pickupSpike', spikeId)
                 end
             }
         })
@@ -356,7 +356,7 @@ RegisterNetEvent('spikes:client:createSpike', function(spikeId, spikeData, owner
 end)
 
 -- Event to deploy spikes from a remote deployer
-RegisterNetEvent('spikes:client:deployRemoteSpikes', function(spikeId, positions)
+RegisterNetEvent('colbss-spikes:client:deployRemoteSpikes', function(spikeId, positions)
     local spikeData = deployedSpikes[spikeId]
     if not spikeData or spikeData.type ~= SPIKE_TYPES.REMOTE_DEPLOYER or spikeData.state ~= SPIKE_STATES.PLACED then
         return
@@ -393,7 +393,7 @@ RegisterNetEvent('spikes:client:deployRemoteSpikes', function(spikeId, positions
                     return spikeData.owner == cache.serverId
                 end,
                 onSelect = function()
-                    TriggerServerEvent('spikes:server:resetDeployer', spikeId)
+                    TriggerServerEvent('colbss-spikes:server:resetDeployer', spikeId)
                 end
             }
         })
@@ -401,7 +401,7 @@ RegisterNetEvent('spikes:client:deployRemoteSpikes', function(spikeId, positions
 end)
 
 -- Event to reset a remote deployer
-RegisterNetEvent('spikes:client:resetDeployer', function(spikeId)
+RegisterNetEvent('colbss-spikes:client:resetDeployer', function(spikeId)
     local spikeData = deployedSpikes[spikeId]
     if not spikeData or spikeData.type ~= SPIKE_TYPES.REMOTE_DEPLOYER or spikeData.state ~= SPIKE_STATES.DEPLOYED then
         return
@@ -444,7 +444,7 @@ RegisterNetEvent('spikes:client:resetDeployer', function(spikeId)
                     return spikeData.owner == cache.serverId and deployedSpikes[spikeId].state == SPIKE_STATES.PLACED
                 end,
                 onSelect = function()
-                    TriggerServerEvent('spikes:server:pickupSpike', spikeId)
+                    TriggerServerEvent('colbss-spikes:server:pickupSpike', spikeId)
                 end
             }
         })
@@ -452,7 +452,7 @@ RegisterNetEvent('spikes:client:resetDeployer', function(spikeId)
 end)
 
 -- Unified event to remove spikes
-RegisterNetEvent('spikes:client:removeSpike', function(spikeId)
+RegisterNetEvent('colbss-spikes:client:removeSpike', function(spikeId)
     local spikeData = deployedSpikes[spikeId]
     if not spikeData then return end
     
@@ -615,7 +615,7 @@ exports('useDeployer', function(data)
             }) then
                 -- Progress completed successfully
                 ClearPedTasks(cache.ped)
-                TriggerServerEvent('spikes:server:createSpike', {
+                TriggerServerEvent('colbss-spikes:server:createSpike', {
                     type = SPIKE_TYPES.REMOTE_DEPLOYER,
                     coords = deployCoords,
                     heading = playerHeading
@@ -688,7 +688,7 @@ exports('tuneFrequency', function(data)
             local frequency = math.floor(input[1])
             
             -- Update the metadata on the server
-            TriggerServerEvent('spikes:server:tuneRemoteFrequency', data.slot, frequency)
+            TriggerServerEvent('colbss-spikes:server:tuneRemoteFrequency', data.slot, frequency)
             
             lib.notify({
                 description = 'Remote tuned to ' .. frequency .. ' MHz',
