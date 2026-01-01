@@ -109,6 +109,18 @@ RegisterNetEvent('ar_spikes:server:createSpike', function(spikeData)
                 description = 'Spike deployer placed on frequency: ' .. frequency .. ' MHz',
                 type = 'success'
             })
+
+
+            CreateLog(src, 'Placed', 'Placed spike deployer', {
+                id = spikeId,
+                type = shared.SPIKE_TYPES.REMOTE_DEPLOYER,
+                coords = {
+                    x = tonumber(string.format("%.2f", spikeData.coords.x)),
+                    y = tonumber(string.format("%.2f", spikeData.coords.y)),
+                    z = tonumber(string.format("%.2f", spikeData.coords.z))
+                },
+                frequency = frequency
+            })
         else
             TriggerClientEvent('ox_lib:notify', src, {
                 description = 'You don\'t have a spike deployer',
@@ -146,6 +158,17 @@ RegisterNetEvent('ar_spikes:server:createSpike', function(spikeData)
             TriggerClientEvent('ox_lib:notify', src, {
                 description = 'Spike strips deployed successfully',
                 type = 'success'
+            })
+
+            CreateLog(src, 'Deployed', 'Deployed standalone spikes', {
+                id = spikeId,
+                type = shared.SPIKE_TYPES.STANDALONE,
+                coords = {
+                    x = tonumber(string.format("%.2f", spikeData.positions[1].x)),
+                    y = tonumber(string.format("%.2f", spikeData.positions[1].y)),
+                    z = tonumber(string.format("%.2f", spikeData.positions[1].z))
+                },
+                length = spikeData.length
             })
         else
             TriggerClientEvent('ox_lib:notify', src, {
@@ -272,6 +295,17 @@ RegisterNetEvent('ar_spikes:server:deployRemoteSpikes', function(spikeId, positi
     deployedSpikes[spikeId].positions = positions
 
     TriggerClientEvent('ar_spikes:client:deployRemoteSpikes', -1, spikeId, positions)
+
+    CreateLog(src, 'Deployed', 'Activated remote spikes', {
+        id = spikeId,
+        type = shared.SPIKE_TYPES.REMOTE_DEPLOYER,
+        coords = {
+            x = tonumber(string.format("%.2f", spikeData.coords.x)),
+            y = tonumber(string.format("%.2f", spikeData.coords.y)),
+            z = tonumber(string.format("%.2f", spikeData.coords.z))
+        },
+        frequency = spikeData.frequency,
+    })
 end)
 
 RegisterNetEvent('ar_spikes:server:resetDeployer', function(spikeId)
@@ -321,6 +355,16 @@ RegisterNetEvent('ar_spikes:server:resetDeployer', function(spikeId)
     TriggerClientEvent('ox_lib:notify', src, {
         description = 'Deployer reset successfully',
         type = 'success'
+    })
+
+    CreateLog(src, 'Reset', 'Reset remote spikes', {
+        id = spikeId,
+        type = shared.SPIKE_TYPES.REMOTE_DEPLOYER,
+        coords = {
+            x = tonumber(string.format("%.2f", spikeData.coords.x)),
+            y = tonumber(string.format("%.2f", spikeData.coords.y)),
+            z = tonumber(string.format("%.2f", spikeData.coords.z))
+        },
     })
 end)
 
@@ -380,6 +424,16 @@ RegisterNetEvent('ar_spikes:server:pickupSpikeDeployer', function(spikeId)
         description = 'Equipment picked up',
         type = 'success'
     })
+
+    CreateLog(src, 'Pickup', 'Picked up remote spikes', {
+        id = spikeId,
+        type = shared.SPIKE_TYPES.REMOTE_DEPLOYER,
+        coords = {
+            x = tonumber(string.format("%.2f", spikeData.coords.x)),
+            y = tonumber(string.format("%.2f", spikeData.coords.y)),
+            z = tonumber(string.format("%.2f", spikeData.coords.z))
+        },
+    })
 end)
 
 RegisterNetEvent('ar_spikes:server:pickupStandaloneSpikes', function(spikeId)
@@ -436,6 +490,12 @@ RegisterNetEvent('ar_spikes:server:pickupStandaloneSpikes', function(spikeId)
     TriggerClientEvent('ox_lib:notify', src, {
         description = 'Spike strips picked up',
         type = 'success'
+    })
+
+    CreateLog(src, 'Pickup', 'Picked up standalone spikes', {
+        id = spikeId,
+        type = shared.SPIKE_TYPES.STANDALONE,
+        positions = spikeData.positions,
     })
 end)
 

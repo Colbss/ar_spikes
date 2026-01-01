@@ -25,7 +25,6 @@ Credit to [Loaf Scripts](https://github.com/loaf-scripts/loaf_spikestrips/tree/m
 
 - common.FaceCoords causes player to freeze if already facing coords
 - Update player references to be framework generic
-- Logs ?
 
 ## License
 
