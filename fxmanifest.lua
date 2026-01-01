@@ -3,9 +3,9 @@ game 'gta5'
 lua54 'yes'
 use_experimental_fxv2_oal 'yes'
 
-description 'Sky City RP - Spike Strip System'
+description 'Aether Scripts - Spike Strips'
 author 'Colbss'
-version '1.0.0'
+version '1.1.0'
 
 dependencies {
     'ox_lib',

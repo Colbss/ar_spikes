@@ -7,7 +7,7 @@ OX INVENTORY ONLY
 		stack = false,	
 		consume = 0,
 		client = {
-			export = 'colbss_spikes.useRoll'
+			export = 'ar_spikes.useRoll'
 		},
 	},
 	
@@ -18,7 +18,7 @@ OX INVENTORY ONLY
 		stack = false,
 		consume = 0,
 		client = {
-			export = 'colbss_spikes.useDeployer'
+			export = 'ar_spikes.useDeployer'
 		},
 	},
 	
@@ -30,14 +30,13 @@ OX INVENTORY ONLY
 		consume = 0,
 		close = true,
 		client = {
-			export = 'colbss_spikes.useRemote'
+			export = 'ar_spikes.useRemote'
 		},
 		buttons = {
 			{
 				label = 'Tune Frequency',
 				action = function(slot)
-					print('Remote Slot:', slot)
-					exports["colbss_spikes"]:tuneFrequency({
+					exports["ar_spikes"]:tuneFrequency({
 						slot = slot,
 						name = 'spike_deployer_remote',
 						close = true,
@@ -47,8 +46,7 @@ OX INVENTORY ONLY
 			{
 				label = 'Deploy Spikes',
 				action = function(slot)
-					print('Remote Slot:', slot)
-					exports["colbss_spikes"]:useRemote({
+					exports["ar_spikes"]:useRemote({
 						slot = slot,
 						name = 'spike_deployer_remote',
 						close = true,
