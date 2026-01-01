@@ -58,18 +58,18 @@ local function deployStandaloneSpikeStrip()
         cleanupRoll()
 
         -- Get spike positions
-        local positions = getSpikePositions(spikeLength, playerCoords, playerHeading)
+        local positions = common.GetSpikePositions(spikeLength, playerCoords, playerHeading)
         local tempProps = {}
         
         -- Deploy each spike strip
         for i = 1, spikeLength do
             local pos = positions[i]
-            tempProps[i] = deploySpikes(pos.x, pos.y, pos.z, pos.w)
+            tempProps[i] = common.DeploySpikes(pos.x, pos.y, pos.z, pos.w)
         end
         
         -- Send to server to create permanent spikes
-        TriggerServerEvent('colbss-spikes:server:createSpike', {
-            type = SPIKE_TYPES.STANDALONE,
+        TriggerServerEvent('ar_spikes:server:createSpike', {
+            type = common.SPIKE_TYPES.STANDALONE,
             positions = positions,
             length = spikeLength
         })
@@ -235,12 +235,12 @@ exports('useRoll', function(data, slot)
 end)
 
 -- Event to create standalone spike strips
-RegisterNetEvent('colbss-spikes:client:createStandaloneSpikes', function(spikeId, spikeData, ownerServerId)
+RegisterNetEvent('ar_spikes:client:createStandaloneSpikes', function(spikeId, spikeData, ownerServerId)
     -- Create the spike strips using the shared function
-    local spikes = createSpikeStrip(spikeData.positions, spikeId)
+    local spikes = common.CreateSpikeStrip(spikeData.positions, spikeId)
     
     -- Add to unified spike tracking system
-    AddSpikeSystem(spikeId, SPIKE_TYPES.STANDALONE, spikes)
+    common.AddSpikeToSystem(spikeId, common.SPIKE_TYPES.STANDALONE, spikes)
     
     -- Create target zones for pickup - one zone covering the entire spike strip
     if #spikes > 0 then
@@ -279,11 +279,11 @@ RegisterNetEvent('colbss-spikes:client:createStandaloneSpikes', function(spikeId
                     icon = 'fas fa-hand-paper',
                     label = 'Pick Up Spike Strips',
                     canInteract = function()
-                        return hasJobAccess(config.roll.jobs)
+                        return common.HasJobAccess(config.roll.jobs)
                     end,
                     onSelect = function()
                         -- Get spikes from unified system
-                        local spikeSystem = GetSpikeSystem(spikeId)
+                        local spikeSystem = common.GetSpikeInSystem(spikeId)
                         if not spikeSystem or not spikeSystem.spikes then return end
                         
                         local spikes = spikeSystem.spikes
@@ -300,7 +300,7 @@ RegisterNetEvent('colbss-spikes:client:createStandaloneSpikes', function(spikeId
                         )
                         
                         -- Face the spike strip first
-                        FaceCoords(centerCoords, function()
+                        common.FaceCoords(centerCoords, function()
                             -- Start pickup animation
                             lib.requestAnimDict('mp_weapons_deal_sting')
                             TaskPlayAnim(cache.ped, 'mp_weapons_deal_sting', 'crackhead_bag_loop', 4.0, -4.0, -1, 1, 0, false, false, false)
@@ -321,7 +321,7 @@ RegisterNetEvent('colbss-spikes:client:createStandaloneSpikes', function(spikeId
                             }) then
                                 -- Progress completed successfully
                                 ClearPedTasks(cache.ped)
-                                TriggerServerEvent('colbss-spikes:server:pickupStandaloneSpikes', spikeId)
+                                TriggerServerEvent('ar_spikes:server:pickupStandaloneSpikes', spikeId)
                             else
                                 -- Progress was cancelled
                                 ClearPedTasks(cache.ped)
@@ -341,9 +341,9 @@ RegisterNetEvent('colbss-spikes:client:createStandaloneSpikes', function(spikeId
 end)
 
 -- Event to remove standalone spike strips
-RegisterNetEvent('colbss-spikes:client:removeStandaloneSpikes', function(spikeId)
+RegisterNetEvent('ar_spikes:client:removeStandaloneSpikes', function(spikeId)
     -- Remove from unified spike tracking
-    local spikeSystem = GetSpikeSystem(spikeId)
+    local spikeSystem = common.GetSpikeInSystem(spikeId)
     if spikeSystem and spikeSystem.spikes then
         for _, spike in pairs(spikeSystem.spikes) do
             if DoesEntityExist(spike.entity) then
@@ -351,7 +351,7 @@ RegisterNetEvent('colbss-spikes:client:removeStandaloneSpikes', function(spikeId
             end
         end
     end
-    RemoveSpikeSystem(spikeId)
+    common.RemoveSpikeFromSystem(spikeId)
     
     -- Remove target zone
     local targetData = standaloneTargets[spikeId]

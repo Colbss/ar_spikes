@@ -25,6 +25,11 @@ return {
                 dict = 'anim@mp_player_intmenu@key_fob@', 
                 name = 'fob_click',
                 flags = 48,
+            },
+            use = {
+                dict = 'mp_weapons_deal_sting',
+                name = 'crackhead_bag_loop',
+                flags = 1,
             }
 
         },
@@ -43,7 +48,7 @@ return {
             dict = 'move_weapon@jerrycan@generic',
             name = 'idle',
         },
-        jobs = nil,
+        jobs = nil, -- Refer above
     },
 
     immune = { -- Vehicles immune to spike strips
