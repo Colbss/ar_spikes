@@ -1,9 +1,16 @@
 
 ![Banner](AR_Banner.svg)
 
-<img src="ar_spikes\[setup]\spike_deployer_remote.png" width="32%">
-<img src="ar_spikes\[setup]\spike_deployer.png" width="32%">
-<img src="ar_spikes\[setup]\spike_roll.png" width="32%">
+<img src="[setup]\spike_deployer_remote.png" width="32%">
+<img src="[setup]\spike_deployer.png" width="32%">
+<img src="[setup]\spike_roll.png" width="32%">
+
+### Preview
+
+<video width="100%" controls>
+    <source src="preview.mp4" type="video/mp4">
+    Your browser does not support the video tag.
+</video>
 
 ### Requirements
 
