@@ -1,4 +1,4 @@
-local config = require('config')
+local config = require 'config'
 LocalState = LocalPlayer.state
 
 -- ▄█████ ▄████▄ ██▄  ▄██ ██▄  ▄██ ▄████▄ ███  ██ 
@@ -11,15 +11,6 @@ common.DeployedSpikes = {}
 common.NearbyCount = 0
 common.NearbySpikes = {}
 common.StingersTick = nil
-
-common.SPIKE_TYPES = {
-    STANDALONE = 'standalone',
-    REMOTE_DEPLOYER = 'remote_deployer'
-}
-common.SPIKE_STATES = {
-    PLACED = 'placed',
-    DEPLOYED = 'deployed'
-}
 
 function common.AddSpikeToSystem(spikeId, spikeType, spikes)
     common.DeployedSpikes[spikeId] = {

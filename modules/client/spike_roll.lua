@@ -1,4 +1,5 @@
 local config = require 'config'
+local shared = require 'shared'
 
 local SpikeRoll = {}
 
@@ -70,7 +71,7 @@ function SpikeRoll.DeploySpikes()
         end
         
         TriggerServerEvent('ar_spikes:server:createSpike', {
-            type = common.SPIKE_TYPES.STANDALONE,
+            type = shared.SPIKE_TYPES.STANDALONE,
             positions = positions,
             length = SpikeRoll.SpikeLength
         })
@@ -148,8 +149,6 @@ AddStateBagChangeHandler('spikes_carry_roll', nil, function(bagName, key, value,
     
     local targetPed = GetPlayerPed(playerId)
     if not DoesEntityExist(targetPed) then return end
-
-    print('spikes_carry_roll changed for playerId:', playerId, 'value:', tostring(value))
     
     if value then
         
@@ -180,7 +179,7 @@ exports('useRoll', function(data, slot)
     exports.ox_inventory:useItem(data, function(data)
         if data then
 
-            local canDeploy = lib.callback.await('ar_spikes:server:checkMaxSpikes', false, common.SPIKE_TYPES.STANDALONE)
+            local canDeploy = lib.callback.await('ar_spikes:server:checkMaxSpikes', false, shared.SPIKE_TYPES.STANDALONE)
             if not canDeploy then
                 return lib.notify({
                     description = 'You have reached the maximum number of spike rolls you can deploy.',
@@ -253,7 +252,7 @@ end)
 RegisterNetEvent('ar_spikes:client:createStandaloneSpikes', function(spikeId, spikeData, ownerServerId)
 
     local spikes = common.CreateSpikeStrip(spikeData.positions, spikeId)
-    common.AddSpikeToSystem(spikeId, common.SPIKE_TYPES.STANDALONE, spikes)
+    common.AddSpikeToSystem(spikeId, shared.SPIKE_TYPES.STANDALONE, spikes)
     
     if #spikes > 0 then
 

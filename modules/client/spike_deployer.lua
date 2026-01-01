@@ -1,4 +1,5 @@
 local config = require 'config'
+local shared = require 'shared'
 
 local SpikeDeployer = {}
 
@@ -177,8 +178,8 @@ RegisterNetEvent('ar_spikes:client:createDeployer', function(spikeId, spikeData,
     FreezeEntityPosition(deployer, true)
     
     SpikeDeployer.Spikes[spikeId] = {
-        type = common.SPIKE_TYPES.REMOTE_DEPLOYER,
-        state = common.SPIKE_STATES.PLACED,
+        type = shared.SPIKE_TYPES.REMOTE_DEPLOYER,
+        state = shared.SPIKE_STATES.PLACED,
         owner = ownerServerId,
         frequency = spikeData.frequency,
         deployer = {
@@ -205,7 +206,7 @@ RegisterNetEvent('ar_spikes:client:createDeployer', function(spikeId, spikeData,
             icon = 'fas fa-hand-paper',
             label = 'Pick Up Deployer',
             canInteract = function()
-                return common.HasJobAccess(config.deployer.jobs) and SpikeDeployer.Spikes[spikeId].state == common.SPIKE_STATES.PLACED
+                return common.HasJobAccess(config.deployer.jobs) and SpikeDeployer.Spikes[spikeId].state == shared.SPIKE_STATES.PLACED
             end,
             onSelect = function()
                 local deployerCoords = GetEntityCoords(deployer)
@@ -219,13 +220,13 @@ end)
 
 RegisterNetEvent('ar_spikes:client:deployRemoteSpikes', function(spikeId, positions)
     local spikeData = SpikeDeployer.Spikes[spikeId]
-    if not spikeData or spikeData.type ~= common.SPIKE_TYPES.REMOTE_DEPLOYER or spikeData.state ~= common.SPIKE_STATES.PLACED then
+    if not spikeData or spikeData.type ~= shared.SPIKE_TYPES.REMOTE_DEPLOYER or spikeData.state ~= shared.SPIKE_STATES.PLACED then
         return
     end
     
     local spikes = common.CreateSpikeStrip(positions, spikeId)
-    common.AddSpikeToSystem(spikeId, common.SPIKE_TYPES.REMOTE_DEPLOYER, spikes)
-    spikeData.state = common.SPIKE_STATES.DEPLOYED
+    common.AddSpikeToSystem(spikeId, shared.SPIKE_TYPES.REMOTE_DEPLOYER, spikes)
+    spikeData.state = shared.SPIKE_STATES.DEPLOYED
     
     if DoesEntityExist(spikeData.deployer.entity) then
         exports.ox_target:addLocalEntity(spikeData.deployer.entity, {
@@ -257,7 +258,7 @@ end)
 
 RegisterNetEvent('ar_spikes:client:resetDeployer', function(spikeId)
     local spikeData = SpikeDeployer.Spikes[spikeId]
-    if not spikeData or spikeData.type ~= common.SPIKE_TYPES.REMOTE_DEPLOYER or spikeData.state ~= common.SPIKE_STATES.DEPLOYED then
+    if not spikeData or spikeData.type ~= shared.SPIKE_TYPES.REMOTE_DEPLOYER or spikeData.state ~= shared.SPIKE_STATES.DEPLOYED then
         return
     end
     
@@ -273,7 +274,7 @@ RegisterNetEvent('ar_spikes:client:resetDeployer', function(spikeId)
     common.RemoveSpikeFromSystem(spikeId)
     
     -- Update the local target data
-    spikeData.state = common.SPIKE_STATES.PLACED
+    spikeData.state = shared.SPIKE_STATES.PLACED
     
     -- Update target options (restore pickup option since spikes are reset)
     if DoesEntityExist(spikeData.deployer.entity) then
@@ -295,7 +296,7 @@ RegisterNetEvent('ar_spikes:client:resetDeployer', function(spikeId)
                 icon = 'fas fa-hand-paper',
                 label = 'Pick Up Deployer',
                 canInteract = function()
-                    return common.HasJobAccess(config.deployer.jobs) and SpikeDeployer.Spikes[spikeId].state == common.SPIKE_STATES.PLACED
+                    return common.HasJobAccess(config.deployer.jobs) and SpikeDeployer.Spikes[spikeId].state == shared.SPIKE_STATES.PLACED
                 end,
                 onSelect = function()
                     TriggerServerEvent('ar_spikes:server:pickupSpike', spikeId)
@@ -311,7 +312,7 @@ RegisterNetEvent('ar_spikes:client:removeDeployer', function(spikeId)
     
     common.RemoveSpikeFromSystem(spikeId)
     
-    if spikeData.type == common.SPIKE_TYPES.REMOTE_DEPLOYER then
+    if spikeData.type == shared.SPIKE_TYPES.REMOTE_DEPLOYER then
         if DoesEntityExist(spikeData.deployer.entity) then
             exports.ox_target:removeLocalEntity(spikeData.deployer.entity)
             DeleteEntity(spikeData.deployer.entity)
@@ -329,7 +330,7 @@ exports('useDeployer', function(data)
     exports.ox_inventory:useItem(data, function(data)
         if data then
 
-            local canDeploy = lib.callback.await('ar_spikes:server:checkMaxSpikes', false, common.SPIKE_TYPES.REMOTE_DEPLOYER)
+            local canDeploy = lib.callback.await('ar_spikes:server:checkMaxSpikes', false, shared.SPIKE_TYPES.REMOTE_DEPLOYER)
             if not canDeploy then
                 return lib.notify({
                     description = 'You have reached the maximum number of active spike deployers.',
@@ -361,8 +362,6 @@ exports('useDeployer', function(data)
             )
 
             local animConfig = config.deployer.anim.use
-            lib.print.info(animConfig)
-
             if lib.progressBar({
                 duration = 3000,
                 label = 'Using Spike Deployer...',
@@ -384,7 +383,7 @@ exports('useDeployer', function(data)
                 }
             }) then
                 TriggerServerEvent('ar_spikes:server:createSpike', {
-                    type = common.SPIKE_TYPES.REMOTE_DEPLOYER,
+                    type = shared.SPIKE_TYPES.REMOTE_DEPLOYER,
                     coords = deployCoords,
                     heading = playerHeading
                 })
@@ -408,7 +407,7 @@ exports('useRemote', function(data)
             
             SpikeDeployer.PlayDeployAnimation(function()
 
-                local result = lib.callback.await('ar_spikes:server:validateRemoteDeployment', false, common.SPIKE_TYPES.REMOTE_DEPLOYER)
+                local result = lib.callback.await('ar_spikes:server:validateRemoteDeployment', false, shared.SPIKE_TYPES.REMOTE_DEPLOYER)
                 
                 if result.success then
 

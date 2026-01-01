@@ -1,19 +1,8 @@
 local config = require 'config'
+local shared = require 'shared'
 
--- Unified table for all spike systems
 local deployedSpikes = {}
 local spikeIdCounter = 0
-
--- Spike types and states
-local SPIKE_TYPES = {
-    STANDALONE = 'standalone',
-    REMOTE_DEPLOYER = 'remote_deployer'
-}
-
-local SPIKE_STATES = {
-    PLACED = 'placed',      -- For remote deployers (not deployed)
-    DEPLOYED = 'deployed'   -- For both types when spikes are active
-}
 
 local function generateSpikeId()
     spikeIdCounter = spikeIdCounter + 1
@@ -28,9 +17,9 @@ local function removePlayerSpikes(serverId)
     for spikeId, spikeData in pairs(deployedSpikes) do
         if spikeData.owner == serverId then
             deployedSpikes[spikeId] = nil
-            if spikeData.type == SPIKE_TYPES.REMOTE_DEPLOYER then
+            if spikeData.type == shared.SPIKE_TYPES.REMOTE_DEPLOYER then
                 TriggerClientEvent('ar_spikes:client:removeDeployer', -1, spikeId)
-            elseif spikeData.type == SPIKE_TYPES.STANDALONE then
+            elseif spikeData.type == shared.SPIKE_TYPES.STANDALONE then
                 TriggerClientEvent('ar_spikes:client:removeStandaloneSpikes', -1, spikeId)
             end
         end
@@ -59,7 +48,7 @@ RegisterNetEvent('ar_spikes:server:createSpike', function(spikeData)
     local playerCoords = GetEntityCoords(GetPlayerPed(src))
     local deployCoords
     
-    if spikeData.type == SPIKE_TYPES.STANDALONE then
+    if spikeData.type == shared.SPIKE_TYPES.STANDALONE then
         -- For standalone spikes, use the first position in the array
         if spikeData.positions and #spikeData.positions > 0 then
             deployCoords = vector3(spikeData.positions[1].x, spikeData.positions[1].y, spikeData.positions[1].z)
@@ -87,7 +76,7 @@ RegisterNetEvent('ar_spikes:server:createSpike', function(spikeData)
 
     local spikeId = generateSpikeId()
     
-    if spikeData.type == SPIKE_TYPES.REMOTE_DEPLOYER then
+    if spikeData.type == shared.SPIKE_TYPES.REMOTE_DEPLOYER then
         -- Check job access for deployer
         if not hasJobAccess(Player, config.deployer.jobs) then
             return TriggerClientEvent('ox_lib:notify', src, {
@@ -106,8 +95,8 @@ RegisterNetEvent('ar_spikes:server:createSpike', function(spikeData)
             
             -- Store spike data
             deployedSpikes[spikeId] = {
-                type = SPIKE_TYPES.REMOTE_DEPLOYER,
-                state = SPIKE_STATES.PLACED,
+                type = shared.SPIKE_TYPES.REMOTE_DEPLOYER,
+                state = shared.SPIKE_STATES.PLACED,
                 owner = src,
                 coords = spikeData.coords,
                 heading = spikeData.heading,
@@ -117,7 +106,7 @@ RegisterNetEvent('ar_spikes:server:createSpike', function(spikeData)
             
             -- Send to all clients
             TriggerClientEvent('ar_spikes:client:createDeployer', -1, spikeId, {
-                type = SPIKE_TYPES.REMOTE_DEPLOYER,
+                type = shared.SPIKE_TYPES.REMOTE_DEPLOYER,
                 coords = spikeData.coords,
                 heading = spikeData.heading,
                 frequency = frequency
@@ -134,7 +123,7 @@ RegisterNetEvent('ar_spikes:server:createSpike', function(spikeData)
             })
         end
         
-    elseif spikeData.type == SPIKE_TYPES.STANDALONE then
+    elseif spikeData.type == shared.SPIKE_TYPES.STANDALONE then
         -- Check job access for roll
         if not hasJobAccess(Player, config.roll.jobs) then
             return TriggerClientEvent('ox_lib:notify', src, {
@@ -151,8 +140,8 @@ RegisterNetEvent('ar_spikes:server:createSpike', function(spikeData)
             
             -- Store spike data
             deployedSpikes[spikeId] = {
-                type = SPIKE_TYPES.STANDALONE,
-                state = SPIKE_STATES.DEPLOYED,
+                type = shared.SPIKE_TYPES.STANDALONE,
+                state = shared.SPIKE_STATES.DEPLOYED,
                 owner = src,
                 positions = spikeData.positions,
                 length = spikeData.length,
@@ -161,7 +150,7 @@ RegisterNetEvent('ar_spikes:server:createSpike', function(spikeData)
             
             -- Send to all clients
             TriggerClientEvent('ar_spikes:client:createStandaloneSpikes', -1, spikeId, {
-                type = SPIKE_TYPES.STANDALONE,
+                type = shared.SPIKE_TYPES.STANDALONE,
                 positions = spikeData.positions
             }, src)
             
@@ -194,9 +183,9 @@ lib.callback.register('ar_spikes:server:validateRemoteDeployment', function(sour
     
     -- Look for a remote deployer with matching frequency that hasn't been deployed yet
     for spikeId, spikeData in pairs(deployedSpikes) do
-        if spikeData.type == SPIKE_TYPES.REMOTE_DEPLOYER and 
+        if spikeData.type == shared.SPIKE_TYPES.REMOTE_DEPLOYER and 
            spikeData.frequency == frequency and 
-           spikeData.state == SPIKE_STATES.PLACED then
+           spikeData.state == shared.SPIKE_STATES.PLACED then
             
             -- Check distance from player to deployer
             local deployerCoords = vector3(spikeData.coords.x, spikeData.coords.y, spikeData.coords.z)
@@ -224,9 +213,9 @@ lib.callback.register('ar_spikes:server:validateRemoteDeployment', function(sour
     
     -- Check if there's a deployer but already deployed
     for spikeId, spikeData in pairs(deployedSpikes) do
-        if spikeData.type == SPIKE_TYPES.REMOTE_DEPLOYER and 
+        if spikeData.type == shared.SPIKE_TYPES.REMOTE_DEPLOYER and 
            spikeData.frequency == frequency and
-           spikeData.state == SPIKE_STATES.DEPLOYED then
+           spikeData.state == shared.SPIKE_STATES.DEPLOYED then
             return { 
                 success = false, 
                 message = 'Spikes already deployed on frequency ' .. frequency .. ' MHz.'
@@ -249,7 +238,7 @@ lib.callback.register('ar_spikes:server:checkMaxSpikes', function(source, sType)
         return false
     end
 
-    local maxSpikes = sType == SPIKE_TYPES.STANDALONE and config.roll.max or config.deployer.max
+    local maxSpikes = sType == shared.SPIKE_TYPES.STANDALONE and config.roll.max or config.deployer.max
     local deployedCount = 0
 
     for _, spikeData in pairs(deployedSpikes) do
@@ -278,12 +267,12 @@ RegisterNetEvent('ar_spikes:server:updateSpikeState', function(spikeId, position
         return
     end
     
-    if not spikeData or spikeData.type ~= SPIKE_TYPES.REMOTE_DEPLOYER or spikeData.state ~= SPIKE_STATES.PLACED then
+    if not spikeData or spikeData.type ~= shared.SPIKE_TYPES.REMOTE_DEPLOYER or spikeData.state ~= shared.SPIKE_STATES.PLACED then
         return
     end
     
     -- Update server data
-    deployedSpikes[spikeId].state = SPIKE_STATES.DEPLOYED
+    deployedSpikes[spikeId].state = shared.SPIKE_STATES.DEPLOYED
     deployedSpikes[spikeId].positions = positions
     
     -- Tell all clients to deploy the spikes
@@ -320,7 +309,7 @@ RegisterNetEvent('ar_spikes:server:resetDeployer', function(spikeId)
     end
     
     -- Only allow reset of deployed remote deployers
-    if spikeData.type ~= SPIKE_TYPES.REMOTE_DEPLOYER or spikeData.state ~= SPIKE_STATES.DEPLOYED then
+    if spikeData.type ~= shared.SPIKE_TYPES.REMOTE_DEPLOYER or spikeData.state ~= shared.SPIKE_STATES.DEPLOYED then
         return TriggerClientEvent('ox_lib:notify', src, {
             description = 'Deployer is not deployed or invalid',
             type = 'error'
@@ -340,7 +329,7 @@ RegisterNetEvent('ar_spikes:server:resetDeployer', function(spikeId)
     end
     
     -- Update server data
-    deployedSpikes[spikeId].state = SPIKE_STATES.PLACED
+    deployedSpikes[spikeId].state = shared.SPIKE_STATES.PLACED
     deployedSpikes[spikeId].positions = nil
     
     -- Tell all clients to reset the deployer
@@ -385,7 +374,7 @@ RegisterNetEvent('ar_spikes:server:pickupSpike', function(spikeId)
     end
     
     -- Only allow pickup of remote deployers that haven't deployed spikes
-    if spikeData.type ~= SPIKE_TYPES.REMOTE_DEPLOYER or spikeData.state ~= SPIKE_STATES.PLACED then
+    if spikeData.type ~= shared.SPIKE_TYPES.REMOTE_DEPLOYER or spikeData.state ~= shared.SPIKE_STATES.PLACED then
         return TriggerClientEvent('ox_lib:notify', src, {
             description = 'Cannot pick up deployed spike systems',
             type = 'error'
@@ -404,7 +393,7 @@ RegisterNetEvent('ar_spikes:server:pickupSpike', function(spikeId)
     end
     
     -- Give back the appropriate item
-    if spikeData.type == SPIKE_TYPES.REMOTE_DEPLOYER then
+    if spikeData.type == shared.SPIKE_TYPES.REMOTE_DEPLOYER then
         exports.ox_inventory:AddItem(src, 'spike_deployer', 1)
     end
     
@@ -444,7 +433,7 @@ RegisterNetEvent('ar_spikes:server:pickupStandaloneSpikes', function(spikeId)
     end
     
     -- Only allow pickup of standalone spikes
-    if spikeData.type ~= SPIKE_TYPES.STANDALONE then
+    if spikeData.type ~= shared.SPIKE_TYPES.STANDALONE then
         return TriggerClientEvent('ox_lib:notify', src, {
             description = 'Invalid spike system type',
             type = 'error'

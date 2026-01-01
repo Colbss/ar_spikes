@@ -28,6 +28,7 @@ ui_page 'web/dist/index.html'
 
 files {
     'config.lua',
+    'shared.lua',
     'sounds/dlc_stinger/stinger.awc',
 	'sounds/data/stinger.dat54.rel',
     'web/dist/**/*',
