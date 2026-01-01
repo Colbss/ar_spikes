@@ -1,6 +1,10 @@
 
 ![Banner](AR_Banner.svg)
 
+<img src="ar_spikes\[setup]\spike_deployer_remote.png" width="32%">
+<img src="ar_spikes\[setup]\spike_deployer.png" width="32%">
+<img src="ar_spikes\[setup]\spike_roll.png" width="32%">
+
 ### Requirements
 
 - ox_lib
@@ -9,8 +13,9 @@
 
 ### Install
 
-1. Add items under `[SETUP]` to `ox_inventory`
-2. Add images under `[SETUP]` to `ox_inventory/web/images`
+1. Download ZIP and extract ar_spikes
+2. Add items under `[SETUP]` to `ox_inventory/data/items.lua`
+3. Add images under `[SETUP]` to `ox_inventory/web/images`
 
 ### Credits
 
@@ -21,6 +26,7 @@ Credit to [Loaf Scripts](https://github.com/loaf-scripts/loaf_spikestrips/tree/m
 - common.FaceCoords causes player to freeze if already facing coords
 - Add UI for standalone spikes
 - Update player references to be framework generic
+- Logs ?
 
 ## License
 
