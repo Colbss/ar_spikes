@@ -137,6 +137,7 @@ function SpikeDeployer.GetTargetData(spikeId)
             name = 'spike_get_frequency',
             icon = 'fas fa-broadcast-tower',
             label = 'Get Frequency',
+            distance = 2.0,
             onSelect = function()
                 lib.notify({
                     description = 'Frequency: ' .. spikeData.frequency .. ' MHz',
@@ -151,6 +152,7 @@ function SpikeDeployer.GetTargetData(spikeId)
             name = 'spike_pickup',
             icon = 'fas fa-hand-paper',
             label = 'Pick Up Deployer',
+            distance = 2.0,
             canInteract = function()
                 return common.HasJobAccess(config.deployer.jobs) and spikeData.state == shared.SPIKE_STATES.PLACED
             end,
@@ -166,6 +168,7 @@ function SpikeDeployer.GetTargetData(spikeId)
             name = 'spike_reset_deployer',
             icon = 'fas fa-undo',
             label = 'Reset Deployer',
+            distance = 2.0,
             canInteract = function()
                 return common.HasJobAccess(config.deployer.jobs)
             end,

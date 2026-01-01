@@ -283,6 +283,7 @@ RegisterNetEvent('ar_spikes:client:createStandaloneSpikes', function(spikeId, sp
                     name = 'pickup_standalone_spikes_' .. spikeId,
                     icon = 'fas fa-hand-paper',
                     label = 'Pick Up Spike Strips',
+                    distance = 2.0,
                     canInteract = function()
                         return common.HasJobAccess(config.roll.jobs)
                     end,
@@ -296,13 +297,18 @@ RegisterNetEvent('ar_spikes:client:createStandaloneSpikes', function(spikeId, sp
                         local lastSpike = spikes[#spikes]
                         local firstPos = GetEntityCoords(firstSpike.entity)
                         local lastPos = GetEntityCoords(lastSpike.entity)
-                        local centerCoords = vector3(
-                            (firstPos.x + lastPos.x) / 2,
-                            (firstPos.y + lastPos.y) / 2,
-                            (firstPos.z + lastPos.z) / 2
-                        )
+                        local playerCoords = GetEntityCoords(cache.ped)                       
+                        local function getClosestPointOnLineSegment(p, a, b)
+                            local ap = p - a
+                            local ab = b - a
+                            local abLengthSquared = ab.x * ab.x + ab.y * ab.y + ab.z * ab.z
+                            local t = (ap.x * ab.x + ap.y * ab.y + ap.z * ab.z) / abLengthSquared
+                            t = math.max(0, math.min(1, t))
+                            return vector3(a.x + t * ab.x, a.y + t * ab.y, a.z + t * ab.z)
+                        end                  
+                        local closestPoint = getClosestPointOnLineSegment(playerCoords, firstPos, lastPos)
                         
-                        common.FaceCoords(centerCoords, function()
+                        common.FaceCoords(closestPoint, function()
                             
                             local animConfig = config.roll.anim.use
                             if lib.progressBar({
