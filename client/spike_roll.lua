@@ -1,47 +1,35 @@
 local config = require 'config'
 
--- Roll specific variables
-local isCarryingRoll = false
-local rollProp = nil
-local rollStateBag = nil
-local isPlacingSpikes = false
-local spikeLength = 1
+local SpikeRoll = {}
 
--- Local tracking of other players' roll props
-local playerRollProps = {}
+SpikeRoll.IsPlacingSpikes = false
+SpikeRoll.SpikeLength = 1
+SpikeRoll.RollProps = {}
+SpikeRoll.SpikeZones = {}
 
--- Local tracking for target zones only (not spikes)
-local standaloneTargets = {}
-
-local function cleanupRoll()
-    if rollProp and DoesEntityExist(rollProp) then
-        DeleteEntity(rollProp)
-        rollProp = nil
+function SpikeRoll.StopCarry()
+    
+    local isCarrying = LocalState.spikes_carry_roll
+    if isCarrying then
+        LocalState:set('spikes_carry_roll', false, true)
     end
-    if rollStateBag then
-        rollStateBag:set('spikes_carry_roll', false, true)
-        rollStateBag = nil
+    SpikeRoll.IsPlacingSpikes = false
+    
+    local animConfig = config.roll.anim.carry
+    if IsEntityPlayingAnim(cache.ped, animConfig.dict, animConfig.name, 3) then
+        StopAnimTask(cache.ped, animConfig.dict, animConfig.name, 4.0)
     end
-    isCarryingRoll = false
-    isPlacingSpikes = false
-    ClearPedTasks(cache.ped)
+
     lib.hideTextUI()
 end
 
-local function deployStandaloneSpikeStrip()
-    if not isCarryingRoll or not isPlacingSpikes then return end
+function SpikeRoll.DeploySpikes()
+    if not SpikeRoll.IsPlacingSpikes then return end
     
     local playerCoords = GetEntityCoords(cache.ped)
     local playerHeading = GetEntityHeading(cache.ped)
     
-    -- Stop the carry animation first
-    ClearPedTasks(cache.ped)
-    
-    -- Start deploy animation
-    lib.requestAnimDict('mp_weapons_deal_sting')
-    TaskPlayAnim(cache.ped, 'mp_weapons_deal_sting', 'crackhead_bag_loop', 4.0, -4.0, -1, 1, 1.0, false, false, false)
-    
-    -- Show progress bar
+    local animConfig = config.roll.anim.use
     if lib.progressBar({
         duration = 2000,
         label = 'Deploying spike strips...',
@@ -51,43 +39,49 @@ local function deployStandaloneSpikeStrip()
             car = true,
             move = true,
             combat = true
+        },
+        anim = {
+            dict = animConfig.dict,
+            clip = animConfig.name,
+            flags = animConfig.flags,
+            blendIn = 4.0,
+            blendOut = -4.0,
         }
     }) then
 
         -- Clean up roll prop immediately after successful deployment
-        cleanupRoll()
+        SpikeRoll.StopCarry()
 
-        -- Get spike positions
-        local positions = common.GetSpikePositions(spikeLength, playerCoords, playerHeading)
+        local positions = common.GetSpikePositions(SpikeRoll.SpikeLength, playerCoords, playerHeading)
         local tempProps = {}
-        
-        -- Deploy each spike strip
-        for i = 1, spikeLength do
+        for i = 1, SpikeRoll.SpikeLength do
             local pos = positions[i]
             tempProps[i] = common.DeploySpikes(pos.x, pos.y, pos.z, pos.w)
         end
         
-        -- Send to server to create permanent spikes
         TriggerServerEvent('ar_spikes:server:createSpike', {
             type = common.SPIKE_TYPES.STANDALONE,
             positions = positions,
-            length = spikeLength
+            length = SpikeRoll.SpikeLength
         })
         
-        -- Clean up temporary props
-        for i = 1, spikeLength do
+        for i = 1, SpikeRoll.SpikeLength do
             if DoesEntityExist(tempProps[i]) then
                 DeleteEntity(tempProps[i])
             end
         end
     else
-        -- Progress cancelled - restart carry animation
-        lib.requestAnimDict(config.roll.anim.dict)
-        TaskPlayAnim(cache.ped, config.roll.anim.dict, config.roll.anim.name, 4.0, -4.0, -1, 49, 0, false, false, false)
+        -- Restart carry animation on cancel
+        local animConfig = config.roll.anim.carry
+        lib.requestAnimDict(animConfig.dict)
+        TaskPlayAnim(cache.ped, animConfig.dict, animConfig.name, 4.0, -4.0, -1, 49, 0, false, false, false)
     end
 end
 
--- Statebag handler for roll carrying
+-- ▄█████ ██████ ▄████▄ ██████ ██████   ██  ██ ▄████▄ ███  ██ ████▄  ██     ██████ █████▄  ▄█████ 
+-- ▀▀▀▄▄▄   ██   ██▄▄██   ██   ██▄▄     ██████ ██▄▄██ ██ ▀▄██ ██  ██ ██     ██▄▄   ██▄▄██▄ ▀▀▀▄▄▄ 
+-- █████▀   ██   ██  ██   ██   ██▄▄▄▄   ██  ██ ██  ██ ██   ██ ████▀  ██████ ██▄▄▄▄ ██   ██ █████▀ 
+
 AddStateBagChangeHandler('spikes_carry_roll', nil, function(bagName, key, value, reserved, replicated)
     if replicated then return end
     
@@ -96,48 +90,41 @@ AddStateBagChangeHandler('spikes_carry_roll', nil, function(bagName, key, value,
     
     local targetPed = GetPlayerPed(playerId)
     if not DoesEntityExist(targetPed) then return end
+
+    print('spikes_carry_roll changed for playerId:', playerId, 'value:', tostring(value))
     
     if value then
-        -- Player started carrying roll - attach prop for all players (including self)
-        local rollModel = GetHashKey(config.roll.prop)
-        lib.requestModel(rollModel)
         
+        local rollModel = GetHashKey(config.roll.prop)
+        lib.requestModel(rollModel, 2000)
         local prop = CreateObject(rollModel, 0, 0, 0, false, false, false)
-        AttachEntityToEntity(prop, targetPed, GetPedBoneIndex(targetPed, config.roll.anim.bone), 
-            config.roll.anim.offset.x, config.roll.anim.offset.y, config.roll.anim.offset.z,
-            config.roll.anim.rotation.x, config.roll.anim.rotation.y, config.roll.anim.rotation.z,
+        local animConfig = config.roll.anim.carry
+        AttachEntityToEntity(prop, targetPed, GetPedBoneIndex(targetPed, animConfig.bone), 
+            animConfig.offset.x, animConfig.offset.y, animConfig.offset.z,
+            animConfig.rotation.x, animConfig.rotation.y, animConfig.rotation.z,
             true, true, false, true, 1, true)
         
-        -- Store for cleanup
-        if playerId == PlayerId() then
-            rollProp = prop
-        else
-            playerRollProps[playerId] = prop
-        end
+        SpikeRoll.RollProps[playerId] = prop
     else
-        -- Player stopped carrying roll
-        if playerId == PlayerId() then
-            if rollProp and DoesEntityExist(rollProp) then
-                DeleteEntity(rollProp)
-                rollProp = nil
-            end
-        else
-            local prop = playerRollProps[playerId]
-            if prop and DoesEntityExist(prop) then
-                DeleteEntity(prop)
-            end
-            playerRollProps[playerId] = nil
+        local prop = SpikeRoll.RollProps[playerId]
+        if prop and DoesEntityExist(prop) then
+            DeleteEntity(prop)
         end
+        SpikeRoll.RollProps[playerId] = nil
     end
 end)
 
--- Export for using roll
+-- ██████ ██  ██ █████▄ ▄████▄ █████▄  ██████ ▄█████ 
+-- ██▄▄    ████  ██▄▄█▀ ██  ██ ██▄▄██▄   ██   ▀▀▀▄▄▄ 
+-- ██▄▄▄▄ ██  ██ ██     ▀████▀ ██   ██   ██   █████▀ 
+
 exports('useRoll', function(data, slot)
     exports.ox_inventory:useItem(data, function(data)
         if data then
-            if isCarryingRoll then
+
+            if SpikeRoll.IsPlacingSpikes then
                 return lib.notify({
-                    description = 'You are already carrying a spike roll.',
+                    description = 'You are already deploying a spike roll.',
                     type = 'error'
                 })
             end
@@ -149,17 +136,12 @@ exports('useRoll', function(data, slot)
                 })
             end
             
-            -- Load animation
-            lib.requestAnimDict(config.roll.anim.dict)
+            local animConfig = config.roll.anim.carry
+            lib.requestAnimDict(animConfig.dict)
+            TaskPlayAnim(cache.ped, animConfig.dict, animConfig.name, 4.0, -4.0, -1, animConfig.flags, 0, false, false, false)
             
-            -- Start animation (upper body only)
-            TaskPlayAnim(cache.ped, config.roll.anim.dict, config.roll.anim.name, 4.0, -4.0, -1, 49, 0, false, false, false)
-            
-            -- Set state
-            isCarryingRoll = true
-            isPlacingSpikes = true
-            rollStateBag = LocalPlayer.state
-            rollStateBag:set('spikes_carry_roll', true, true)
+            SpikeRoll.IsPlacingSpikes = true
+            LocalState:set('spikes_carry_roll', true, true)
             
             -- Show initial text UI
             lib.showTextUI(string.format(
@@ -168,64 +150,67 @@ exports('useRoll', function(data, slot)
                 '[DOWN] - Decrease Length    \n'..
                 '[E]    - Deploy Spikes    \n'..
                 '[BACK] - Cancel',
-                spikeLength
+                SpikeRoll.SpikeLength
             ))
-            
-            -- Watch for vehicle entry
-            lib.onCache('vehicle', function(vehicle)
-                if isCarryingRoll and vehicle then
-                    cleanupRoll()
-                    lib.notify({
-                        description = 'Spike roll placement cancelled - entered vehicle.',
-                        type = 'error'
-                    })
-                end
-            end)
             
             -- Handle input for spike placement
             CreateThread(function()
-                while isCarryingRoll and isPlacingSpikes do
+                local animConfig = config.roll.anim.carry
+                while SpikeRoll.IsPlacingSpikes do
                     Wait(0)
                     
                     -- Increase length
                     if IsControlJustPressed(0, 172) then -- UP Arrow
-                        if spikeLength < 4 then
-                            spikeLength = spikeLength + 1
+                        if SpikeRoll.SpikeLength < 4 then
+                            SpikeRoll.SpikeLength = SpikeRoll.SpikeLength + 1
                             lib.showTextUI(string.format(
                                 'Current Length: %d    \n' .. 
                                 '[UP]   - Increase Length    \n' .. 
                                 '[DOWN] - Decrease Length    \n'..
                                 '[E]    - Deploy Spikes    \n'..
                                 '[BACK] - Cancel',
-                                spikeLength
+                                SpikeRoll.SpikeLength
                             ))
                         end
                     end
                     
                     -- Decrease length
                     if IsControlJustPressed(0, 173) then -- DOWN Arrow
-                        if spikeLength > 1 then
-                            spikeLength = spikeLength - 1
+                        if SpikeRoll.SpikeLength > 1 then
+                            SpikeRoll.SpikeLength = SpikeRoll.SpikeLength - 1
                             lib.showTextUI(string.format(
                                 'Current Length: %d    \n' .. 
                                 '[UP]   - Increase Length    \n' .. 
                                 '[DOWN] - Decrease Length    \n'..
                                 '[E]    - Deploy Spikes    \n'..
                                 '[BACK] - Cancel',
-                                spikeLength
+                                SpikeRoll.SpikeLength
                             ))
                         end
                     end
                     
                     -- Deploy spikes
                     if IsControlJustPressed(0, 38) then -- E
-                        deployStandaloneSpikeStrip()
+                        SpikeRoll.DeploySpikes()
+                        break
+                    end
+
+                    if not IsEntityPlayingAnim(cache.ped, animConfig.dict, animConfig.name, 3) then
+                        TaskPlayAnim(cache.ped, animConfig.dict, animConfig.name, 4.0, -4.0, -1, animConfig.flags, 0, false, false, false)
+                    end
+
+                    if cache.vehicle then
+                        SpikeRoll.StopCarry()
+                        lib.notify({
+                            description = 'Spike roll placement cancelled - entered vehicle.',
+                            type = 'error'
+                        })
                         break
                     end
                     
                     -- Cancel
                     if IsControlJustPressed(0, 177) or IsControlJustPressed(0, 322) then -- Backspace or ESC
-                        cleanupRoll()
+                        SpikeRoll.StopCarry()
                         break
                     end
                 end
@@ -234,45 +219,36 @@ exports('useRoll', function(data, slot)
     end)
 end)
 
--- Event to create standalone spike strips
+-- ██████ ██  ██ ██████ ███  ██ ██████ ▄█████ 
+-- ██▄▄   ██▄▄██ ██▄▄   ██ ▀▄██   ██   ▀▀▀▄▄▄ 
+-- ██▄▄▄▄  ▀██▀  ██▄▄▄▄ ██   ██   ██   █████▀ 
+
 RegisterNetEvent('ar_spikes:client:createStandaloneSpikes', function(spikeId, spikeData, ownerServerId)
-    -- Create the spike strips using the shared function
+
     local spikes = common.CreateSpikeStrip(spikeData.positions, spikeId)
-    
-    -- Add to unified spike tracking system
     common.AddSpikeToSystem(spikeId, common.SPIKE_TYPES.STANDALONE, spikes)
     
-    -- Create target zones for pickup - one zone covering the entire spike strip
     if #spikes > 0 then
-        -- Use actual spike entity positions after PlaceObjectOnGroundProperly
+
         local firstSpike = spikes[1]
         local lastSpike = spikes[#spikes]
-        
         local firstPos = GetEntityCoords(firstSpike.entity)
         local lastPos = GetEntityCoords(lastSpike.entity)
-        
-        -- Calculate center point between first and last spike
         local centerX = (firstPos.x + lastPos.x) / 2
         local centerY = (firstPos.y + lastPos.y) / 2
         local centerZ = (firstPos.z + lastPos.z) / 2
-
         local heightDiff = math.abs(firstPos.z - lastPos.z)
-        
-        -- Calculate length of the spike strip (distance between first and last + spike width)
         local stripLength = #(firstPos - lastPos) + 3.5
-        
-        -- Get the correct rotation - use the spike heading minus 90 degrees
         local spikeHeading = GetEntityHeading(firstSpike.entity)
         local zoneRotation = spikeHeading - 90.0
         if zoneRotation < 0 then
             zoneRotation = zoneRotation + 360.0
         end
         
-        -- Create target zone and store the returned ID
         local zoneId = exports.ox_target:addBoxZone({
             coords = vector3(centerX, centerY, centerZ),
-            size = vector3(stripLength + 1.0, 1.0, math.max(1.0, heightDiff*2)), -- Extra width for easier targeting
-            rotation = zoneRotation, -- Corrected rotation
+            size = vector3(stripLength + 1.0, 1.0, math.max(1.0, heightDiff*2)),
+            rotation = zoneRotation,
             options = {
                 {
                     name = 'pickup_standalone_spikes_' .. spikeId,
@@ -282,13 +258,11 @@ RegisterNetEvent('ar_spikes:client:createStandaloneSpikes', function(spikeId, sp
                         return common.HasJobAccess(config.roll.jobs)
                     end,
                     onSelect = function()
-                        -- Get spikes from unified system
+
                         local spikeSystem = common.GetSpikeInSystem(spikeId)
                         if not spikeSystem or not spikeSystem.spikes then return end
-                        
                         local spikes = spikeSystem.spikes
                         
-                        -- Calculate center of spike strip for facing
                         local firstSpike = spikes[1]
                         local lastSpike = spikes[#spikes]
                         local firstPos = GetEntityCoords(firstSpike.entity)
@@ -299,13 +273,9 @@ RegisterNetEvent('ar_spikes:client:createStandaloneSpikes', function(spikeId, sp
                             (firstPos.z + lastPos.z) / 2
                         )
                         
-                        -- Face the spike strip first
                         common.FaceCoords(centerCoords, function()
-                            -- Start pickup animation
-                            lib.requestAnimDict('mp_weapons_deal_sting')
-                            TaskPlayAnim(cache.ped, 'mp_weapons_deal_sting', 'crackhead_bag_loop', 4.0, -4.0, -1, 1, 0, false, false, false)
                             
-                            -- Show progress bar
+                            local animConfig = config.roll.anim.use
                             if lib.progressBar({
                                 duration = 3000,
                                 label = 'Picking up spike strips...',
@@ -317,14 +287,16 @@ RegisterNetEvent('ar_spikes:client:createStandaloneSpikes', function(spikeId, sp
                                     car = true,
                                     move = true,
                                     combat = true
+                                },
+                                anim = {
+                                    dict = animConfig.dict,
+                                    clip = animConfig.name,
+                                    flags = animConfig.flags,
+                                    blendIn = 4.0,
+                                    blendOut = -4.0,
                                 }
                             }) then
-                                -- Progress completed successfully
-                                ClearPedTasks(cache.ped)
                                 TriggerServerEvent('ar_spikes:server:pickupStandaloneSpikes', spikeId)
-                            else
-                                -- Progress was cancelled
-                                ClearPedTasks(cache.ped)
                             end
                         end)
                     end
@@ -332,17 +304,15 @@ RegisterNetEvent('ar_spikes:client:createStandaloneSpikes', function(spikeId, sp
             }
         })
         
-        -- Store only target zone info
-        standaloneTargets[spikeId] = {
+        SpikeRoll.SpikeZones[spikeId] = {
             zoneId = zoneId,
             owner = ownerServerId
         }
     end
 end)
 
--- Event to remove standalone spike strips
 RegisterNetEvent('ar_spikes:client:removeStandaloneSpikes', function(spikeId)
-    -- Remove from unified spike tracking
+
     local spikeSystem = common.GetSpikeInSystem(spikeId)
     if spikeSystem and spikeSystem.spikes then
         for _, spike in pairs(spikeSystem.spikes) do
@@ -353,35 +323,37 @@ RegisterNetEvent('ar_spikes:client:removeStandaloneSpikes', function(spikeId)
     end
     common.RemoveSpikeFromSystem(spikeId)
     
-    -- Remove target zone
-    local targetData = standaloneTargets[spikeId]
+    local targetData = SpikeRoll.SpikeZones[spikeId]
     if targetData and targetData.zoneId then
         exports.ox_target:removeZone(targetData.zoneId)
     end
     
-    standaloneTargets[spikeId] = nil
+    SpikeRoll.SpikeZones[spikeId] = nil
 end)
 
--- Cleanup on resource events
+-- ██  ██ ▄████▄ ███  ██ ████▄  ██     ██████ █████▄  ▄█████ 
+-- ██████ ██▄▄██ ██ ▀▄██ ██  ██ ██     ██▄▄   ██▄▄██▄ ▀▀▀▄▄▄ 
+-- ██  ██ ██  ██ ██   ██ ████▀  ██████ ██▄▄▄▄ ██   ██ █████▀ 
+
 AddEventHandler('onResourceStop', function(resource)
     if GetCurrentResourceName() ~= resource then return end
-    if isCarryingRoll then
-        cleanupRoll()
+    if SpikeRoll.IsCarryingRoll then
+        SpikeRoll.StopCarry()
     end
     
     -- Clean up all tracked roll props
-    for playerId, prop in pairs(playerRollProps) do
+    for playerId, prop in pairs(SpikeRoll.RollProps) do
         if DoesEntityExist(prop) then
             DeleteEntity(prop)
         end
     end
-    playerRollProps = {}
+    SpikeRoll.RollProps = {}
     
     -- Clean up target zones only (spikes handled by unified system)
-    for spikeId, targetData in pairs(standaloneTargets) do
+    for spikeId, targetData in pairs(SpikeRoll.SpikeZones) do
         if targetData.zoneId then
             exports.ox_target:removeZone(targetData.zoneId)
         end
     end
-    standaloneTargets = {}
+    SpikeRoll.SpikeZones = {}
 end)

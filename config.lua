@@ -42,11 +42,19 @@ return {
         prop = 'stinger_roll', -- Prop model for roll
         max = 2, -- Max per player
         anim = {
-            bone = 28422,
-            offset = vec3(0.1536, -0.0054, -0.0223),
-            rotation = vec3(0.0, 0.0, 0.0),
-            dict = 'move_weapon@jerrycan@generic',
-            name = 'idle',
+            carry = {
+                bone = 28422,
+                offset = vec3(0.1536, -0.0054, -0.0223),
+                rotation = vec3(0.0, 0.0, 0.0),
+                dict = 'move_weapon@jerrycan@generic',
+                name = 'idle',
+                flags = 49,
+            },
+            use = {
+                dict = 'mp_weapons_deal_sting',
+                name = 'crackhead_bag_loop',
+                flags = 1,
+            }
         },
         jobs = nil, -- Refer above
     },

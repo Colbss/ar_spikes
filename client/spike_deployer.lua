@@ -127,7 +127,6 @@ end
 -- ▀▀▀▄▄▄   ██   ██▄▄██   ██   ██▄▄     ██████ ██▄▄██ ██ ▀▄██ ██  ██ ██     ██▄▄   ██▄▄██▄ ▀▀▀▄▄▄ 
 -- █████▀   ██   ██  ██   ██   ██▄▄▄▄   ██  ██ ██  ██ ██   ██ ████▀  ██████ ██▄▄▄▄ ██   ██ █████▀ 
 
-
 AddStateBagChangeHandler('spikes_remote_prop', nil, function(bagName, key, value, reserved, replicated)
     if replicated then return end
 
