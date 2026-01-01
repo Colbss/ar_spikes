@@ -1,14 +1,14 @@
 
 ![Banner](AR_Banner.svg)
 
-<img src="[setup]\spike_deployer_remote.png" width="32%">
-<img src="[setup]\spike_deployer.png" width="32%">
-<img src="[setup]\spike_roll.png" width="32%">
+<img src="https://raw.githubusercontent.com/Colbss/ar_spikes/refs/heads/master/%5Bsetup%5D/spike_deployer_remote.png" width="32%">
+<img src="https://raw.githubusercontent.com/Colbss/ar_spikes/refs/heads/master/%5Bsetup%5D/spike_deployer.png" width="32%">
+<img src="https://raw.githubusercontent.com/Colbss/ar_spikes/refs/heads/master/%5Bsetup%5D/spike_roll.png" width="32%">
 
 ### Preview
 
 <video width="100%" controls>
-    <source src="preview.mp4" type="video/mp4">
+    <source src="https://github.com/Colbss/ar_spikes/raw/refs/heads/master/Preview.mp4" type="video/mp4">
     Your browser does not support the video tag.
 </video>
 
