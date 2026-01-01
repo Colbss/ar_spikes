@@ -160,6 +160,8 @@ AddStateBagChangeHandler('spikes_carry_roll', nil, function(bagName, key, value,
             animConfig.offset.x, animConfig.offset.y, animConfig.offset.z,
             animConfig.rotation.x, animConfig.rotation.y, animConfig.rotation.z,
             true, true, false, true, 1, true)
+
+        SetModelAsNoLongerNeeded(rollModel)
         
         SpikeRoll.RollProps[playerId] = prop
     else
@@ -240,6 +242,7 @@ exports('useRoll', function(data, slot)
 
                     Wait(500)
                 end
+                RemoveAnimDict(animConfig.dict)
             end)
         end
     end)

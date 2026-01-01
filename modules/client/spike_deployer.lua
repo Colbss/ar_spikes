@@ -24,6 +24,8 @@ function SpikeDeployer.StartTuneAnimation()
 
     SpikeDeployer.AnimState.active = true
     SpikeDeployer.AnimState.type = 'tune'
+
+    RemoveAnimDict(animConfig.dict)
 end
 
 function SpikeDeployer.StopTuneAnimation()
@@ -67,6 +69,8 @@ function SpikeDeployer.PlayDeployAnimation(callback)
     
     SpikeDeployer.AnimState.active = true
     SpikeDeployer.AnimState.type = 'deploy'
+
+    RemoveAnimDict(animConfig.dict)
     
     -- Wait briefly then start spike strip animation
     SetTimeout(500, function()
@@ -156,6 +160,8 @@ AddStateBagChangeHandler('spikes_remote_prop', nil, function(bagName, key, value
             animConfig.rotation.x, animConfig.rotation.y, animConfig.rotation.z,
             true, true, false, true, 1, true
         )
+
+        SetModelAsNoLongerNeeded(propHash)
         
         SpikeDeployer.RemoteProps[playerId] = prop
     end
@@ -173,6 +179,8 @@ RegisterNetEvent('ar_spikes:client:createDeployer', function(spikeId, spikeData,
     SetEntityHeading(deployer, spikeData.heading)
     PlaceObjectOnGroundProperly(deployer)
     FreezeEntityPosition(deployer, true)
+
+    SetModelAsNoLongerNeeded(deployerModel)
     
     SpikeDeployer.Spikes[spikeId] = {
         type = shared.SPIKE_TYPES.REMOTE_DEPLOYER,

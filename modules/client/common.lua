@@ -39,26 +39,23 @@ function common.DeployTempSpikes(x, y, z, h)
     PlaceObjectOnGroundProperly(stinger)
     SetEntityVisible(stinger, false)
     
-    -- Play deploy animation
     PlayEntityAnim(stinger, "P_Stinger_S_Deploy", 'P_ld_stinger_s', 1000.0, false, true, 0, 0.0, 0)
-    
-    -- Wait for animation to start
     while not IsEntityPlayingAnim(stinger, 'P_ld_stinger_s', "P_Stinger_S_Deploy", 3) do
         Wait(0)
     end
-    
     SetEntityAnimSpeed(stinger, 'P_ld_stinger_s', "P_Stinger_S_Deploy", 1.75)
     playDeployAudio(stinger)
     SetEntityVisible(stinger, true)
     
-    -- Wait for deploy animation to finish
     while IsEntityPlayingAnim(stinger, 'P_ld_stinger_s', "P_Stinger_S_Deploy", 3) and 
           GetEntityAnimCurrentTime(stinger, "p_ld_stinger_s", "P_Stinger_S_Deploy") <= 0.99 do
         Wait(0)
     end
     
-    -- Play idle animation
     PlayEntityAnim(stinger, "p_stinger_s_idle_deployed", 'P_ld_stinger_s', 1000.0, false, true, 0, 0.99, 0)
+
+    SetModelAsNoLongerNeeded(spikeModel)
+    RemoveAnimDict('P_ld_stinger_s')
     
     return stinger
 end
@@ -92,6 +89,8 @@ function common.CreateSpikeStrip(positions, parentId)
         }
     end
     
+    SetModelAsNoLongerNeeded(spikeModel)
+
     return spikes
 end
 
