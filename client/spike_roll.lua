@@ -2,7 +2,7 @@ local config = require 'config'
 
 local SpikeRoll = {}
 
-SpikeRoll.IsPlacingSpikes = false
+SpikeRoll.DeployState = 0 -- 0 == not deploying, 1 == holding roll, 2 == placing spikes
 SpikeRoll.SpikeLength = 1
 SpikeRoll.RollProps = {}
 SpikeRoll.SpikeZones = {}
@@ -13,7 +13,7 @@ function SpikeRoll.StopCarry()
     if isCarrying then
         LocalState:set('spikes_carry_roll', false, true)
     end
-    SpikeRoll.IsPlacingSpikes = false
+    SpikeRoll.DeployState = 0
     
     local animConfig = config.roll.anim.carry
     if IsEntityPlayingAnim(cache.ped, animConfig.dict, animConfig.name, 3) then
@@ -24,7 +24,9 @@ function SpikeRoll.StopCarry()
 end
 
 function SpikeRoll.DeploySpikes()
-    if not SpikeRoll.IsPlacingSpikes then return end
+    if SpikeRoll.DeployState ~= 1 then return end
+
+    SpikeRoll.DeployState = 2
     
     local playerCoords = GetEntityCoords(cache.ped)
     local playerHeading = GetEntityHeading(cache.ped)
@@ -78,6 +80,45 @@ function SpikeRoll.DeploySpikes()
     end
 end
 
+-- ██████ ██  ██ ███  ██ ▄█████ ██████ ██ ▄████▄ ███  ██ ▄█████ 
+-- ██▄▄   ██  ██ ██ ▀▄██ ██       ██   ██ ██  ██ ██ ▀▄██ ▀▀▀▄▄▄ 
+-- ██     ▀████▀ ██   ██ ▀█████   ██   ██ ▀████▀ ██   ██ █████▀ 
+
+function ConfirmSpikePlacement()
+    if SpikeRoll.DeployState ~= 1 then return end
+    SpikeRoll.DeploySpikes()
+end
+
+function CancelSpikePlacement()
+    if SpikeRoll.DeployState ~= 1 then return end
+    SpikeRoll.StopCarry()
+end
+
+function ChangeSpikeCount(amount)
+    if SpikeRoll.DeployState ~= 1 then return end
+
+    SpikeRoll.SpikeLength = SpikeRoll.SpikeLength + amount
+    if SpikeRoll.SpikeLength < 1 then
+        SpikeRoll.SpikeLength = 1
+    elseif SpikeRoll.SpikeLength > 4 then
+        SpikeRoll.SpikeLength = 4
+    end
+    
+    lib.showTextUI(string.format(
+        'Current Length: %d    \n' .. 
+        '[%s] - Increase Length    \n' .. 
+        '[%s] - Decrease Length    \n'..
+        '[%s] - Deploy Spikes    \n'..
+        '[%s] - Cancel',
+        SpikeRoll.SpikeLength,
+        common.GetKeyLabel(keybinds.increase.hash),
+        common.GetKeyLabel(keybinds.decrease.hash),
+        common.GetKeyLabel(keybinds.select.hash),
+        common.GetKeyLabel(keybinds.cancel.hash)
+    ))
+
+end
+
 -- ▄█████ ██████ ▄████▄ ██████ ██████   ██  ██ ▄████▄ ███  ██ ████▄  ██     ██████ █████▄  ▄█████ 
 -- ▀▀▀▄▄▄   ██   ██▄▄██   ██   ██▄▄     ██████ ██▄▄██ ██ ▀▄██ ██  ██ ██     ██▄▄   ██▄▄██▄ ▀▀▀▄▄▄ 
 -- █████▀   ██   ██  ██   ██   ██▄▄▄▄   ██  ██ ██  ██ ██   ██ ████▀  ██████ ██▄▄▄▄ ██   ██ █████▀ 
@@ -122,7 +163,7 @@ exports('useRoll', function(data, slot)
     exports.ox_inventory:useItem(data, function(data)
         if data then
 
-            if SpikeRoll.IsPlacingSpikes then
+            if SpikeRoll.DeployState ~= 0 then
                 return lib.notify({
                     description = 'You are already deploying a spike roll.',
                     type = 'error'
@@ -140,61 +181,27 @@ exports('useRoll', function(data, slot)
             lib.requestAnimDict(animConfig.dict)
             TaskPlayAnim(cache.ped, animConfig.dict, animConfig.name, 4.0, -4.0, -1, animConfig.flags, 0, false, false, false)
             
-            SpikeRoll.IsPlacingSpikes = true
+            SpikeRoll.DeployState = 1
             LocalState:set('spikes_carry_roll', true, true)
             
             -- Show initial text UI
             lib.showTextUI(string.format(
                 'Current Length: %d    \n' .. 
-                '[UP]   - Increase Length    \n' .. 
-                '[DOWN] - Decrease Length    \n'..
-                '[E]    - Deploy Spikes    \n'..
-                '[BACK] - Cancel',
-                SpikeRoll.SpikeLength
+                '[%s] - Increase Length    \n' .. 
+                '[%s] - Decrease Length    \n'..
+                '[%s] - Deploy Spikes    \n'..
+                '[%s] - Cancel',
+                SpikeRoll.SpikeLength,
+                common.GetKeyLabel(keybinds.increase.hash),
+                common.GetKeyLabel(keybinds.decrease.hash),
+                common.GetKeyLabel(keybinds.select.hash),
+                common.GetKeyLabel(keybinds.cancel.hash)
             ))
             
             -- Handle input for spike placement
             CreateThread(function()
-                local animConfig = config.roll.anim.carry
-                while SpikeRoll.IsPlacingSpikes do
-                    Wait(0)
+                while SpikeRoll.DeployState == 1 do
                     
-                    -- Increase length
-                    if IsControlJustPressed(0, 172) then -- UP Arrow
-                        if SpikeRoll.SpikeLength < 4 then
-                            SpikeRoll.SpikeLength = SpikeRoll.SpikeLength + 1
-                            lib.showTextUI(string.format(
-                                'Current Length: %d    \n' .. 
-                                '[UP]   - Increase Length    \n' .. 
-                                '[DOWN] - Decrease Length    \n'..
-                                '[E]    - Deploy Spikes    \n'..
-                                '[BACK] - Cancel',
-                                SpikeRoll.SpikeLength
-                            ))
-                        end
-                    end
-                    
-                    -- Decrease length
-                    if IsControlJustPressed(0, 173) then -- DOWN Arrow
-                        if SpikeRoll.SpikeLength > 1 then
-                            SpikeRoll.SpikeLength = SpikeRoll.SpikeLength - 1
-                            lib.showTextUI(string.format(
-                                'Current Length: %d    \n' .. 
-                                '[UP]   - Increase Length    \n' .. 
-                                '[DOWN] - Decrease Length    \n'..
-                                '[E]    - Deploy Spikes    \n'..
-                                '[BACK] - Cancel',
-                                SpikeRoll.SpikeLength
-                            ))
-                        end
-                    end
-                    
-                    -- Deploy spikes
-                    if IsControlJustPressed(0, 38) then -- E
-                        SpikeRoll.DeploySpikes()
-                        break
-                    end
-
                     if not IsEntityPlayingAnim(cache.ped, animConfig.dict, animConfig.name, 3) then
                         TaskPlayAnim(cache.ped, animConfig.dict, animConfig.name, 4.0, -4.0, -1, animConfig.flags, 0, false, false, false)
                     end
@@ -207,12 +214,8 @@ exports('useRoll', function(data, slot)
                         })
                         break
                     end
-                    
-                    -- Cancel
-                    if IsControlJustPressed(0, 177) or IsControlJustPressed(0, 322) then -- Backspace or ESC
-                        SpikeRoll.StopCarry()
-                        break
-                    end
+
+                    Wait(500)
                 end
             end)
         end
