@@ -43,7 +43,6 @@ const nuiStore = useNUI();
 
 .spike-deploy-content {
   background: rgba(10, 10, 14, 0.95);
-  border: 0.2vh solid #5b8cff;
   border-radius: 0.8vh;
   padding: 1vh 2vh 2vh 2vh;
   box-shadow: 0 0.4vh 0.6vh rgba(0, 0, 0, 0.5);
@@ -59,7 +58,7 @@ const nuiStore = useNUI();
 
 .length-label {
   color: #ffffff;
-  font-size: 1.4vh;
+  font-size: 1.2vh;
   font-weight: bold;
 }
 
@@ -78,9 +77,9 @@ const nuiStore = useNUI();
   background: rgba(91, 140, 255, 0.2);
   border: 0.1vh solid #5b8cff;
   border-radius: 0.4vh;
-  padding: 0.6vh 1.2vh;
+  padding: 0.4vh 1vh;
   color: #5b8cff;
-  font-size: 1vh;
+  font-size: 0.8vh;
   font-weight: bold;
   text-align: center;
   text-transform: uppercase;
@@ -88,7 +87,7 @@ const nuiStore = useNUI();
 
 .control-label {
   color: rgba(255, 255, 255, 0.9);
-  font-size: 1.2vh;
+  font-size: 1vh;
   font-weight: 500;
 }
 </style>

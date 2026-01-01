@@ -16,9 +16,9 @@ function SpikeRoll.StopCarry()
     SpikeRoll.DeployState = 0
     
     local animConfig = config.roll.anim.carry
-    if IsEntityPlayingAnim(cache.ped, animConfig.dict, animConfig.name, 3) then
-        StopAnimTask(cache.ped, animConfig.dict, animConfig.name, 4.0)
-    end
+
+    StopAnimTask(cache.ped, animConfig.dict, animConfig.name, 4.0)
+    ClearPedTasks(cache.ped)
 
     -- lib.hideTextUI()
     SendNUIMessage({
@@ -31,6 +31,10 @@ function SpikeRoll.DeploySpikes()
     if SpikeRoll.DeployState ~= 1 then return end
 
     SpikeRoll.DeployState = 2
+
+    SendNUIMessage({
+        action = 'hideUI',
+    })
     
     local playerCoords = GetEntityCoords(cache.ped)
     local playerHeading = GetEntityHeading(cache.ped)
@@ -77,10 +81,25 @@ function SpikeRoll.DeploySpikes()
             end
         end
     else
-        -- Restart carry animation on cancel
+        
+        SpikeRoll.DeployState = 1
+
         local animConfig = config.roll.anim.carry
         lib.requestAnimDict(animConfig.dict)
         TaskPlayAnim(cache.ped, animConfig.dict, animConfig.name, 4.0, -4.0, -1, 49, 0, false, false, false)
+
+        SendNUIMessage({
+            action = 'showUI',
+            data = {
+                keys = {
+                    increaseLabel = common.GetKeyLabel(keybinds.increase.hash),
+                    decreaseLabel = common.GetKeyLabel(keybinds.decrease.hash),
+                    confirmLabel = common.GetKeyLabel(keybinds.select.hash),
+                    cancelLabel = common.GetKeyLabel(keybinds.cancel.hash)
+                },
+                initialLength = SpikeRoll.SpikeLength
+            }
+        })
     end
 end
 
@@ -107,19 +126,6 @@ function ChangeSpikeCount(amount)
     elseif SpikeRoll.SpikeLength > 4 then
         SpikeRoll.SpikeLength = 4
     end
-    
-    -- lib.showTextUI(string.format(
-    --     'Current Length: %d    \n' .. 
-    --     '[%s] - Increase Length    \n' .. 
-    --     '[%s] - Decrease Length    \n'..
-    --     '[%s] - Deploy Spikes    \n'..
-    --     '[%s] - Cancel',
-    --     SpikeRoll.SpikeLength,
-    --     common.GetKeyLabel(keybinds.increase.hash),
-    --     common.GetKeyLabel(keybinds.decrease.hash),
-    --     common.GetKeyLabel(keybinds.select.hash),
-    --     common.GetKeyLabel(keybinds.cancel.hash)
-    -- ))
 
     SendNUIMessage({
         action = 'setLength',
@@ -194,20 +200,6 @@ exports('useRoll', function(data, slot)
             
             SpikeRoll.DeployState = 1
             LocalState:set('spikes_carry_roll', true, true)
-            
-            -- Show initial text UI
-            -- lib.showTextUI(string.format(
-            --     'Current Length: %d    \n' .. 
-            --     '[%s] - Increase Length    \n' .. 
-            --     '[%s] - Decrease Length    \n'..
-            --     '[%s] - Deploy Spikes    \n'..
-            --     '[%s] - Cancel',
-            --     SpikeRoll.SpikeLength,
-            --     common.GetKeyLabel(keybinds.increase.hash),
-            --     common.GetKeyLabel(keybinds.decrease.hash),
-            --     common.GetKeyLabel(keybinds.select.hash),
-            --     common.GetKeyLabel(keybinds.cancel.hash)
-            -- ))
 
             SendNUIMessage({
                 action = 'showUI',
@@ -217,16 +209,16 @@ exports('useRoll', function(data, slot)
                         decreaseLabel = common.GetKeyLabel(keybinds.decrease.hash),
                         confirmLabel = common.GetKeyLabel(keybinds.select.hash),
                         cancelLabel = common.GetKeyLabel(keybinds.cancel.hash)
-                    }
+                    },
                     initialLength = SpikeRoll.SpikeLength
                 }
             })
             
             -- Handle input for spike placement
             CreateThread(function()
-                while SpikeRoll.DeployState == 1 do
+                while SpikeRoll.DeployState > 0 do
                     
-                    if not IsEntityPlayingAnim(cache.ped, animConfig.dict, animConfig.name, 3) then
+                    if not IsEntityPlayingAnim(cache.ped, animConfig.dict, animConfig.name, 3) and SpikeRoll.DeployState ~= 2 then
                         TaskPlayAnim(cache.ped, animConfig.dict, animConfig.name, 4.0, -4.0, -1, animConfig.flags, 0, false, false, false)
                     end
 

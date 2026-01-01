@@ -24,7 +24,6 @@ Credit to [Loaf Scripts](https://github.com/loaf-scripts/loaf_spikestrips/tree/m
 ### To Do
 
 - common.FaceCoords causes player to freeze if already facing coords
-- Add UI for standalone spikes
 - Update player references to be framework generic
 - Logs ?
 
