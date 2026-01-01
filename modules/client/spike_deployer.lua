@@ -42,7 +42,6 @@ function SpikeDeployer.StopTuneAnimation()
     SpikeDeployer.AnimState.type = nil
 end
 
----@param success boolean Whether the sound type is success or fail
 function SpikeDeployer.PlayDeployRemoteSound(success)
     local soundHandle = GetSoundId()
     if success then
@@ -53,7 +52,6 @@ function SpikeDeployer.PlayDeployRemoteSound(success)
     ReleaseSoundId(soundHandle)
 end
 
----@param callback cb Function to call when remote is pressed during animation
 function SpikeDeployer.PlayDeployAnimation(callback)
     if SpikeDeployer.AnimState.active then return end
     
@@ -94,7 +92,6 @@ function SpikeDeployer.RemoveSpikeTargets()
     SpikeDeployer.Spikes = {}
 end
 
----@param spikeId number The ID of the spike deployer
 function SpikeDeployer.ResetRemoteDeployer(spikeId)
     local spikeData = SpikeDeployer.Spikes[spikeId]
     if not spikeData or not spikeData.deployer then return end
@@ -126,6 +123,59 @@ function SpikeDeployer.ResetRemoteDeployer(spikeId)
             TriggerServerEvent('ar_spikes:server:resetDeployer', spikeId)
         end
     end)
+end
+
+function SpikeDeployer.GetTargetData(spikeId)
+    local spikeData = SpikeDeployer.Spikes[spikeId]
+    if not spikeData or not spikeData.deployer then
+        return {}
+    end
+    local spikeEntity = spikeData.deployer.entity
+
+    local targetData = {
+        {
+            name = 'spike_get_frequency',
+            icon = 'fas fa-broadcast-tower',
+            label = 'Get Frequency',
+            onSelect = function()
+                lib.notify({
+                    description = 'Frequency: ' .. spikeData.frequency .. ' MHz',
+                    type = 'inform'
+                })
+            end
+        },
+    }
+
+    if spikeData.state == shared.SPIKE_STATES.PLACED then
+        targetData[#targetData + 1] = {
+            name = 'spike_pickup',
+            icon = 'fas fa-hand-paper',
+            label = 'Pick Up Deployer',
+            canInteract = function()
+                return common.HasJobAccess(config.deployer.jobs) and spikeData.state == shared.SPIKE_STATES.PLACED
+            end,
+            onSelect = function()
+                local deployerCoords = GetEntityCoords(spikeEntity)
+                common.FaceCoords(deployerCoords, function()
+                    TriggerServerEvent('ar_spikes:server:pickupSpikeDeployer', spikeId)
+                end)
+            end
+        }
+    elseif spikeData.state == shared.SPIKE_STATES.DEPLOYED then
+        targetData[#targetData + 1] = {
+            name = 'spike_reset_deployer',
+            icon = 'fas fa-undo',
+            label = 'Reset Deployer',
+            canInteract = function()
+                return common.HasJobAccess(config.deployer.jobs)
+            end,
+            onSelect = function()
+                SpikeDeployer.ResetRemoteDeployer(spikeId)
+            end
+        }
+    end
+
+    return targetData
 end
 
 -- ▄█████ ██████ ▄████▄ ██████ ██████   ██  ██ ▄████▄ ███  ██ ████▄  ██     ██████ █████▄  ▄█████ 
@@ -194,33 +244,7 @@ RegisterNetEvent('ar_spikes:client:createDeployer', function(spikeId, spikeData,
         }
     }
     
-    exports.ox_target:addLocalEntity(deployer, {
-        {
-            name = 'spike_get_frequency',
-            icon = 'fas fa-broadcast-tower',
-            label = 'Get Frequency',
-            onSelect = function()
-                lib.notify({
-                    description = 'Frequency: ' .. spikeData.frequency .. ' MHz',
-                    type = 'inform'
-                })
-            end
-        },
-        {
-            name = 'spike_pickup',
-            icon = 'fas fa-hand-paper',
-            label = 'Pick Up Deployer',
-            canInteract = function()
-                return common.HasJobAccess(config.deployer.jobs) and SpikeDeployer.Spikes[spikeId].state == shared.SPIKE_STATES.PLACED
-            end,
-            onSelect = function()
-                local deployerCoords = GetEntityCoords(deployer)
-                common.FaceCoords(deployerCoords, function()
-                    TriggerServerEvent('ar_spikes:server:pickupSpikeDeployer', spikeId)
-                end)
-            end
-        }
-    })
+    exports.ox_target:addLocalEntity(deployer, SpikeDeployer.GetTargetData(spikeId))
 end)
 
 RegisterNetEvent('ar_spikes:client:deployRemoteSpikes', function(spikeId, positions)
@@ -234,30 +258,8 @@ RegisterNetEvent('ar_spikes:client:deployRemoteSpikes', function(spikeId, positi
     spikeData.state = shared.SPIKE_STATES.DEPLOYED
     
     if DoesEntityExist(spikeData.deployer.entity) then
-        exports.ox_target:addLocalEntity(spikeData.deployer.entity, {
-            {
-                name = 'spike_get_frequency',
-                icon = 'fas fa-broadcast-tower',
-                label = 'Get Frequency',
-                onSelect = function()
-                    lib.notify({
-                        description = 'Frequency: ' .. spikeData.frequency .. ' MHz',
-                        type = 'inform'
-                    })
-                end
-            },
-            {
-                name = 'spike_reset_deployer',
-                icon = 'fas fa-undo',
-                label = 'Reset Deployer',
-                canInteract = function()
-                    return common.HasJobAccess(config.deployer.jobs)
-                end,
-                onSelect = function()
-                    SpikeDeployer.ResetRemoteDeployer(spikeId)
-                end
-            }
-        })
+        exports.ox_target:removeLocalEntity(spikeData.deployer.entity)
+        exports.ox_target:addLocalEntity(spikeData.deployer.entity, SpikeDeployer.GetTargetData(spikeId))
     end
 end)
 
@@ -281,30 +283,7 @@ RegisterNetEvent('ar_spikes:client:resetDeployer', function(spikeId)
     
     if DoesEntityExist(spikeData.deployer.entity) then
         exports.ox_target:removeLocalEntity(spikeData.deployer.entity)
-        exports.ox_target:addLocalEntity(spikeData.deployer.entity, {
-            {
-                name = 'spike_get_frequency',
-                icon = 'fas fa-broadcast-tower',
-                label = 'Get Frequency',
-                onSelect = function()
-                    lib.notify({
-                        description = 'Frequency: ' .. spikeData.frequency .. ' MHz',
-                        type = 'inform'
-                    })
-                end
-            },
-            {
-                name = 'spike_pickup',
-                icon = 'fas fa-hand-paper',
-                label = 'Pick Up Deployer',
-                canInteract = function()
-                    return common.HasJobAccess(config.deployer.jobs) and SpikeDeployer.Spikes[spikeId].state == shared.SPIKE_STATES.PLACED
-                end,
-                onSelect = function()
-                    TriggerServerEvent('ar_spikes:server:pickupSpikeDeployer', spikeId)
-                end
-            }
-        })
+        exports.ox_target:addLocalEntity(spikeData.deployer.entity, SpikeDeployer.GetTargetData(spikeId))
     end
 end)
 
