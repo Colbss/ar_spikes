@@ -109,7 +109,7 @@ end
 
 function common.FaceCoords(coords, callback)
     local heading = headingToCoords(cache.ped, coords)
-    TaskAchieveHeading(cache.ped, heading, 3000)
+    TaskAchieveHeading(cache.ped, heading, 500)
     local startTime = GetGameTimer()
     
     CreateThread(function()
@@ -117,8 +117,8 @@ function common.FaceCoords(coords, callback)
             if isPlayerFacingHeading(cache.ped, heading, 10) then
                 break
             end
-            TaskAchieveHeading(cache.ped, heading, 3000)
-            Wait(100)
+            TaskAchieveHeading(cache.ped, heading, 500)
+            Wait(500)
         end
         
         if callback then callback() end
