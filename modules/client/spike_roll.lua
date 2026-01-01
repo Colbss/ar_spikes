@@ -66,7 +66,7 @@ function SpikeRoll.DeploySpikes()
         local tempProps = {}
         for i = 1, SpikeRoll.SpikeLength do
             local pos = positions[i]
-            tempProps[i] = common.DeploySpikes(pos.x, pos.y, pos.z, pos.w)
+            tempProps[i] = common.DeployTempSpikes(pos.x, pos.y, pos.z, pos.w)
         end
         
         TriggerServerEvent('ar_spikes:server:createSpike', {
@@ -179,6 +179,14 @@ end)
 exports('useRoll', function(data, slot)
     exports.ox_inventory:useItem(data, function(data)
         if data then
+
+            local canDeploy = lib.callback.await('ar_spikes:server:checkMaxSpikes', false, common.SPIKE_TYPES.STANDALONE)
+            if not canDeploy then
+                return lib.notify({
+                    description = 'You have reached the maximum number of spike rolls you can deploy.',
+                    type = 'error'
+                })
+            end
 
             if SpikeRoll.DeployState ~= 0 then
                 return lib.notify({

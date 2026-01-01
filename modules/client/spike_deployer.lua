@@ -329,6 +329,14 @@ exports('useDeployer', function(data)
     exports.ox_inventory:useItem(data, function(data)
         if data then
 
+            local canDeploy = lib.callback.await('ar_spikes:server:checkMaxSpikes', false, common.SPIKE_TYPES.REMOTE_DEPLOYER)
+            if not canDeploy then
+                return lib.notify({
+                    description = 'You have reached the maximum number of active spike deployers.',
+                    type = 'error'
+                })
+            end
+
             if cache.vehicle then
                 return lib.notify({
                     description = 'You cannot deploy in a vehicle.',
@@ -400,7 +408,7 @@ exports('useRemote', function(data)
             
             SpikeDeployer.PlayDeployAnimation(function()
 
-                local result = lib.callback.await('ar_spikes:server:validateRemoteDeployment', false, frequency)
+                local result = lib.callback.await('ar_spikes:server:validateRemoteDeployment', false, common.SPIKE_TYPES.REMOTE_DEPLOYER)
                 
                 if result.success then
 
@@ -418,7 +426,7 @@ exports('useRemote', function(data)
                     
                     for i = 1, 2 do
                         local pos = positions[i]
-                        tempProps[i] = common.DeploySpikes(pos.x, pos.y, pos.z, pos.w)
+                        tempProps[i] = common.DeployTempSpikes(pos.x, pos.y, pos.z, pos.w)
                     end
                     for i = 1, 2 do
                         if DoesEntityExist(tempProps[i]) then

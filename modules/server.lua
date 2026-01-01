@@ -241,6 +241,30 @@ lib.callback.register('ar_spikes:server:validateRemoteDeployment', function(sour
     }
 end)
 
+lib.callback.register('ar_spikes:server:checkMaxSpikes', function(source, sType)
+    local src = source
+    local Player = exports.qbx_core:GetPlayer(src)
+    
+    if not Player then
+        return false
+    end
+
+    local maxSpikes = sType == SPIKE_TYPES.STANDALONE and config.roll.max or config.deployer.max
+    local deployedCount = 0
+
+    for _, spikeData in pairs(deployedSpikes) do
+        if spikeData.owner == src and spikeData.type == sType then
+            deployedCount = deployedCount + 1
+        end
+    end
+
+    if deployedCount >= maxSpikes then
+        return false
+    end
+
+    return true
+end)
+
 -- Event to update spike state after client deployment
 RegisterNetEvent('ar_spikes:server:updateSpikeState', function(spikeId, positions)
     local src = source

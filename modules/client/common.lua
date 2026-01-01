@@ -36,7 +36,7 @@ function common.GetSpikeInSystem(spikeId)
     return common.DeployedSpikes[spikeId]
 end
 
-function common.DeploySpikes(x, y, z, h)
+function common.DeployTempSpikes(x, y, z, h)
     local spikeModel = 'p_ld_stinger_s'
     lib.requestModel(spikeModel)
     lib.requestAnimDict('P_ld_stinger_s')
