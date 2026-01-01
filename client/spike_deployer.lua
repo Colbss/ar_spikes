@@ -13,6 +13,8 @@ local animationState = {
 -- Handle statebag changes for prop attachments
 AddStateBagChangeHandler('spikes_remote_prop', nil, function(bagName, key, value, reserved, replicated)
     if replicated then return end
+
+    --print('BagName: ' .. bagName .. ', Key: ' .. key .. ', Value: ' .. tostring(value) .. ', Reserved: ' .. tostring(reserved) .. ', Replicated: ' .. tostring(replicated))
     
     local playerId = GetPlayerFromStateBagName(bagName)
     if playerId == 0 then return end
@@ -24,6 +26,8 @@ AddStateBagChangeHandler('spikes_remote_prop', nil, function(bagName, key, value
     if playerRemoteProps[playerId] then
         DeleteEntity(playerRemoteProps[playerId])
         playerRemoteProps[playerId] = nil
+
+        --print('Deleted existing prop for player ' .. playerId)
     end
     
     -- Attach new prop if specified
@@ -31,8 +35,10 @@ AddStateBagChangeHandler('spikes_remote_prop', nil, function(bagName, key, value
         local propHash = GetHashKey(config.deployer.anim.prop)
         lib.requestModel(propHash, 5000)
         
-        local prop = CreateObject(propHash, 0.0, 0.0, 0.0, true, true, false)
+        local prop = CreateObject(propHash, 0.0, 0.0, 0.0, false, false, false)
         SetModelAsNoLongerNeeded(propHash)
+
+        --print('Created prop for player ' .. playerId)
         
         local animConfig = config.deployer.anim[value.type]
         AttachEntityToEntity(
