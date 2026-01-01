@@ -137,13 +137,11 @@ AddStateBagChangeHandler('spikes_remote_prop', nil, function(bagName, key, value
     local playerPed = GetPlayerPed(playerId)
     if not DoesEntityExist(playerPed) then return end
     
-    -- Remove existing prop
     if SpikeDeployer.RemoteProps[playerId] then
         DeleteEntity(SpikeDeployer.RemoteProps[playerId])
         SpikeDeployer.RemoteProps[playerId] = nil
     end
     
-    -- Attach new prop if specified
     if value and value.active then
         local propHash = GetHashKey(config.deployer.anim.prop)
         lib.requestModel(propHash, 2000)
@@ -168,7 +166,6 @@ end)
 -- ██▄▄▄▄  ▀██▀  ██▄▄▄▄ ██   ██   ██   █████▀ 
 
 RegisterNetEvent('ar_spikes:client:createDeployer', function(spikeId, spikeData, ownerServerId)
-    -- Create remote deployer prop
     local deployerModel = GetHashKey(config.deployer.prop)
     lib.requestModel(deployerModel, 2000)
     
@@ -211,7 +208,7 @@ RegisterNetEvent('ar_spikes:client:createDeployer', function(spikeId, spikeData,
             onSelect = function()
                 local deployerCoords = GetEntityCoords(deployer)
                 common.FaceCoords(deployerCoords, function()
-                    TriggerServerEvent('ar_spikes:server:pickupSpike', spikeId)
+                    TriggerServerEvent('ar_spikes:server:pickupSpikeDeployer', spikeId)
                 end)
             end
         }
@@ -262,7 +259,6 @@ RegisterNetEvent('ar_spikes:client:resetDeployer', function(spikeId)
         return
     end
     
-    -- Remove from unified spike tracking and clean up spike entities
     local spikeSystem = common.GetSpikeInSystem(spikeId)
     if spikeSystem and spikeSystem.spikes then
         for _, spike in pairs(spikeSystem.spikes) do
@@ -273,10 +269,8 @@ RegisterNetEvent('ar_spikes:client:resetDeployer', function(spikeId)
     end
     common.RemoveSpikeFromSystem(spikeId)
     
-    -- Update the local target data
     spikeData.state = shared.SPIKE_STATES.PLACED
     
-    -- Update target options (restore pickup option since spikes are reset)
     if DoesEntityExist(spikeData.deployer.entity) then
         exports.ox_target:removeLocalEntity(spikeData.deployer.entity)
         exports.ox_target:addLocalEntity(spikeData.deployer.entity, {
@@ -299,7 +293,7 @@ RegisterNetEvent('ar_spikes:client:resetDeployer', function(spikeId)
                     return common.HasJobAccess(config.deployer.jobs) and SpikeDeployer.Spikes[spikeId].state == shared.SPIKE_STATES.PLACED
                 end,
                 onSelect = function()
-                    TriggerServerEvent('ar_spikes:server:pickupSpike', spikeId)
+                    TriggerServerEvent('ar_spikes:server:pickupSpikeDeployer', spikeId)
                 end
             }
         })
@@ -407,7 +401,7 @@ exports('useRemote', function(data)
             
             SpikeDeployer.PlayDeployAnimation(function()
 
-                local result = lib.callback.await('ar_spikes:server:validateRemoteDeployment', false, shared.SPIKE_TYPES.REMOTE_DEPLOYER)
+                local result = lib.callback.await('ar_spikes:server:validateRemoteDeployment', false, frequency)
                 
                 if result.success then
 
@@ -433,7 +427,7 @@ exports('useRemote', function(data)
                         end
                     end
                     
-                    TriggerServerEvent('ar_spikes:server:updateSpikeState', spikeId, positions)
+                    TriggerServerEvent('ar_spikes:server:deployRemoteSpikes', spikeId, positions)
                 else
                     SpikeDeployer.PlayDeployRemoteSound(false)
                 end
@@ -466,7 +460,6 @@ exports('tuneFrequency', function(data)
     end)
 end)
 
--- Display metadata
 exports.ox_inventory:displayMetadata({
     frequency = 'Frequency',
 })

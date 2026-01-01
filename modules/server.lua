@@ -27,7 +27,7 @@ local function removePlayerSpikes(serverId)
 end
 
 local function hasJobAccess(Player, jobConfig)
-    if not jobConfig then return true end -- No job restriction
+    if not jobConfig then return true end
     
     local playerJob = Player.PlayerData.job
     if not playerJob then return false end
@@ -38,7 +38,6 @@ local function hasJobAccess(Player, jobConfig)
     return playerJob.grade.level >= requiredGrade
 end
 
--- Unified event to create any spike type
 RegisterNetEvent('ar_spikes:server:createSpike', function(spikeData)
     local src = source
     local Player = exports.qbx_core:GetPlayer(src)
@@ -49,7 +48,6 @@ RegisterNetEvent('ar_spikes:server:createSpike', function(spikeData)
     local deployCoords
     
     if spikeData.type == shared.SPIKE_TYPES.STANDALONE then
-        -- For standalone spikes, use the first position in the array
         if spikeData.positions and #spikeData.positions > 0 then
             deployCoords = vector3(spikeData.positions[1].x, spikeData.positions[1].y, spikeData.positions[1].z)
         else
@@ -60,7 +58,6 @@ RegisterNetEvent('ar_spikes:server:createSpike', function(spikeData)
             return
         end
     else
-        -- For remote deployer, use the coords directly
         deployCoords = vector3(spikeData.coords.x, spikeData.coords.y, spikeData.coords.z)
     end
     
@@ -77,7 +74,6 @@ RegisterNetEvent('ar_spikes:server:createSpike', function(spikeData)
     local spikeId = generateSpikeId()
     
     if spikeData.type == shared.SPIKE_TYPES.REMOTE_DEPLOYER then
-        -- Check job access for deployer
         if not hasJobAccess(Player, config.deployer.jobs) then
             return TriggerClientEvent('ox_lib:notify', src, {
                 description = 'You do not have permission to use spike deployers',
@@ -85,7 +81,6 @@ RegisterNetEvent('ar_spikes:server:createSpike', function(spikeData)
             })
         end
         
-        -- Handle remote deployer
         local hasItem = exports.ox_inventory:GetItem(src, 'spike_deployer', nil, true)
         
         if hasItem and hasItem >= 1 then
@@ -93,7 +88,6 @@ RegisterNetEvent('ar_spikes:server:createSpike', function(spikeData)
             
             local frequency = generateFrequency()
             
-            -- Store spike data
             deployedSpikes[spikeId] = {
                 type = shared.SPIKE_TYPES.REMOTE_DEPLOYER,
                 state = shared.SPIKE_STATES.PLACED,
@@ -104,7 +98,6 @@ RegisterNetEvent('ar_spikes:server:createSpike', function(spikeData)
                 timestamp = os.time()
             }
             
-            -- Send to all clients
             TriggerClientEvent('ar_spikes:client:createDeployer', -1, spikeId, {
                 type = shared.SPIKE_TYPES.REMOTE_DEPLOYER,
                 coords = spikeData.coords,
@@ -124,7 +117,6 @@ RegisterNetEvent('ar_spikes:server:createSpike', function(spikeData)
         end
         
     elseif spikeData.type == shared.SPIKE_TYPES.STANDALONE then
-        -- Check job access for roll
         if not hasJobAccess(Player, config.roll.jobs) then
             return TriggerClientEvent('ox_lib:notify', src, {
                 description = 'You do not have permission to use spike rolls',
@@ -132,13 +124,11 @@ RegisterNetEvent('ar_spikes:server:createSpike', function(spikeData)
             })
         end
         
-        -- Handle standalone spike strip
         local hasItem = exports.ox_inventory:GetItem(src, 'spike_roll', nil, true)
         
         if hasItem and hasItem >= 1 then
             exports.ox_inventory:RemoveItem(src, 'spike_roll', 1)
             
-            -- Store spike data
             deployedSpikes[spikeId] = {
                 type = shared.SPIKE_TYPES.STANDALONE,
                 state = shared.SPIKE_STATES.DEPLOYED,
@@ -148,7 +138,6 @@ RegisterNetEvent('ar_spikes:server:createSpike', function(spikeData)
                 timestamp = os.time()
             }
             
-            -- Send to all clients
             TriggerClientEvent('ar_spikes:client:createStandaloneSpikes', -1, spikeId, {
                 type = shared.SPIKE_TYPES.STANDALONE,
                 positions = spikeData.positions
@@ -167,7 +156,6 @@ RegisterNetEvent('ar_spikes:server:createSpike', function(spikeData)
     end
 end)
 
--- Callback to validate remote deployment request
 lib.callback.register('ar_spikes:server:validateRemoteDeployment', function(source, frequency)
     local src = source
     local Player = exports.qbx_core:GetPlayer(src)
@@ -181,13 +169,11 @@ lib.callback.register('ar_spikes:server:validateRemoteDeployment', function(sour
     
     local playerCoords = GetEntityCoords(GetPlayerPed(src))
     
-    -- Look for a remote deployer with matching frequency that hasn't been deployed yet
     for spikeId, spikeData in pairs(deployedSpikes) do
         if spikeData.type == shared.SPIKE_TYPES.REMOTE_DEPLOYER and 
            spikeData.frequency == frequency and 
            spikeData.state == shared.SPIKE_STATES.PLACED then
             
-            -- Check distance from player to deployer
             local deployerCoords = vector3(spikeData.coords.x, spikeData.coords.y, spikeData.coords.z)
             local distance = #(playerCoords - deployerCoords)
             
@@ -198,7 +184,6 @@ lib.callback.register('ar_spikes:server:validateRemoteDeployment', function(sour
                 }
             end
             
-            -- Valid deployment - return deployer data
             return { 
                 success = true, 
                 spikeId = spikeId,
@@ -211,7 +196,6 @@ lib.callback.register('ar_spikes:server:validateRemoteDeployment', function(sour
         end
     end
     
-    -- Check if there's a deployer but already deployed
     for spikeId, spikeData in pairs(deployedSpikes) do
         if spikeData.type == shared.SPIKE_TYPES.REMOTE_DEPLOYER and 
            spikeData.frequency == frequency and
@@ -223,7 +207,6 @@ lib.callback.register('ar_spikes:server:validateRemoteDeployment', function(sour
         end
     end
     
-    -- No deployer found on frequency
     return { 
         success = false, 
         message = 'No deployer found on frequency ' .. frequency .. ' MHz.'
@@ -254,38 +237,43 @@ lib.callback.register('ar_spikes:server:checkMaxSpikes', function(source, sType)
     return true
 end)
 
--- Event to update spike state after client deployment
-RegisterNetEvent('ar_spikes:server:updateSpikeState', function(spikeId, positions)
+RegisterNetEvent('ar_spikes:server:deployRemoteSpikes', function(spikeId, positions)
     local src = source
-    local spikeData = deployedSpikes[spikeId]
+    local Player = exports.qbx_core:GetPlayer(src)
+    if not Player then return end
 
-    local playerCoords = GetEntityCoords(GetPlayerPed(src))
+    local spikeData = deployedSpikes[spikeId]
+    if not spikeData then
+        return TriggerClientEvent('ox_lib:notify', src, {
+            description = 'Spike system not found',
+            type = 'error'
+        })
+    end
+
+    local count = exports.ox_inventory:GetItem(src, 'spike_deployer_remote', {frequency = spikeData.frequency}, true)
+    if count < 1 then
+        return
+    end
+
     local deployerCoords = vector3(spikeData.coords.x, spikeData.coords.y, spikeData.coords.z)
-    local distance = #(playerCoords - deployerCoords)
-            
-    if distance > config.deployer.maxDistance then
+    for _, pos in ipairs(positions) do
+        local positionCoords = vector3(pos.x, pos.y, pos.z)
+        local distance = #(positionCoords - deployerCoords)
+        if distance > 10.0 then
+            return
+        end
+    end
+
+    if spikeData.type ~= shared.SPIKE_TYPES.REMOTE_DEPLOYER or spikeData.state ~= shared.SPIKE_STATES.PLACED then
         return
     end
-    
-    if not spikeData or spikeData.type ~= shared.SPIKE_TYPES.REMOTE_DEPLOYER or spikeData.state ~= shared.SPIKE_STATES.PLACED then
-        return
-    end
-    
-    -- Update server data
+
     deployedSpikes[spikeId].state = shared.SPIKE_STATES.DEPLOYED
     deployedSpikes[spikeId].positions = positions
-    
-    -- Tell all clients to deploy the spikes
+
     TriggerClientEvent('ar_spikes:client:deployRemoteSpikes', -1, spikeId, positions)
-    
-    -- Notify the player
-    -- TriggerClientEvent('ox_lib:notify', src, {
-    --     description = 'Remote spikes deployed successfully',
-    --     type = 'success'
-    -- })
 end)
 
--- Event to reset a remote deployer
 RegisterNetEvent('ar_spikes:server:resetDeployer', function(spikeId)
     local src = source
     local Player = exports.qbx_core:GetPlayer(src)
@@ -300,7 +288,6 @@ RegisterNetEvent('ar_spikes:server:resetDeployer', function(spikeId)
         })
     end
     
-    -- Check job access instead of ownership
     if not hasJobAccess(Player, config.deployer.jobs) then
         return TriggerClientEvent('ox_lib:notify', src, {
             description = 'You do not have permission to reset deployers',
@@ -308,7 +295,6 @@ RegisterNetEvent('ar_spikes:server:resetDeployer', function(spikeId)
         })
     end
     
-    -- Only allow reset of deployed remote deployers
     if spikeData.type ~= shared.SPIKE_TYPES.REMOTE_DEPLOYER or spikeData.state ~= shared.SPIKE_STATES.DEPLOYED then
         return TriggerClientEvent('ox_lib:notify', src, {
             description = 'Deployer is not deployed or invalid',
@@ -316,7 +302,6 @@ RegisterNetEvent('ar_spikes:server:resetDeployer', function(spikeId)
         })
     end
     
-    -- Check distance
     local playerCoords = GetEntityCoords(GetPlayerPed(src))
     local deployerCoords = vector3(spikeData.coords.x, spikeData.coords.y, spikeData.coords.z)
     local distance = #(playerCoords - deployerCoords)
@@ -328,11 +313,9 @@ RegisterNetEvent('ar_spikes:server:resetDeployer', function(spikeId)
         })
     end
     
-    -- Update server data
     deployedSpikes[spikeId].state = shared.SPIKE_STATES.PLACED
     deployedSpikes[spikeId].positions = nil
     
-    -- Tell all clients to reset the deployer
     TriggerClientEvent('ar_spikes:client:resetDeployer', -1, spikeId)
     
     TriggerClientEvent('ox_lib:notify', src, {
@@ -343,15 +326,13 @@ end)
 
 RegisterNetEvent('ar_spikes:server:tuneRemoteFrequency', function(slot, frequency)
     local src = source
-    
-    -- Verify item ownership again (for security)
     local item = exports.ox_inventory:GetSlot(src, slot)
     if item and item.name == 'spike_deployer_remote' then
         exports.ox_inventory:SetMetadata(src, slot, {frequency = frequency})
     end
 end)
 
-RegisterNetEvent('ar_spikes:server:pickupSpike', function(spikeId)
+RegisterNetEvent('ar_spikes:server:pickupSpikeDeployer', function(spikeId)
     local src = source
     local Player = exports.qbx_core:GetPlayer(src)
     
@@ -365,7 +346,6 @@ RegisterNetEvent('ar_spikes:server:pickupSpike', function(spikeId)
         })
     end
     
-    -- Check job access instead of ownership
     if not hasJobAccess(Player, config.deployer.jobs) then
         return TriggerClientEvent('ox_lib:notify', src, {
             description = 'You do not have permission to pick up equipment',
@@ -373,7 +353,6 @@ RegisterNetEvent('ar_spikes:server:pickupSpike', function(spikeId)
         })
     end
     
-    -- Only allow pickup of remote deployers that haven't deployed spikes
     if spikeData.type ~= shared.SPIKE_TYPES.REMOTE_DEPLOYER or spikeData.state ~= shared.SPIKE_STATES.PLACED then
         return TriggerClientEvent('ox_lib:notify', src, {
             description = 'Cannot pick up deployed spike systems',
@@ -381,7 +360,6 @@ RegisterNetEvent('ar_spikes:server:pickupSpike', function(spikeId)
         })
     end
     
-    -- Check distance
     local playerCoords = GetEntityCoords(GetPlayerPed(src))
     local distance = #(playerCoords - vector3(spikeData.coords.x, spikeData.coords.y, spikeData.coords.z))
     
@@ -392,15 +370,10 @@ RegisterNetEvent('ar_spikes:server:pickupSpike', function(spikeId)
         })
     end
     
-    -- Give back the appropriate item
-    if spikeData.type == shared.SPIKE_TYPES.REMOTE_DEPLOYER then
-        exports.ox_inventory:AddItem(src, 'spike_deployer', 1)
-    end
+    exports.ox_inventory:AddItem(src, 'spike_deployer', 1)
     
-    -- Remove spike from tracking
     deployedSpikes[spikeId] = nil
     
-    -- Tell all clients to remove this spike
     TriggerClientEvent('ar_spikes:client:removeDeployer', -1, spikeId)
     
     TriggerClientEvent('ox_lib:notify', src, {
@@ -409,7 +382,6 @@ RegisterNetEvent('ar_spikes:server:pickupSpike', function(spikeId)
     })
 end)
 
--- Event to pickup standalone spike strips
 RegisterNetEvent('ar_spikes:server:pickupStandaloneSpikes', function(spikeId)
     local src = source
     local Player = exports.qbx_core:GetPlayer(src)
@@ -424,7 +396,6 @@ RegisterNetEvent('ar_spikes:server:pickupStandaloneSpikes', function(spikeId)
         })
     end
     
-    -- Check job access for roll pickup
     if not hasJobAccess(Player, config.roll.jobs) then
         return TriggerClientEvent('ox_lib:notify', src, {
             description = 'You do not have permission to pick up spike strips',
@@ -432,7 +403,6 @@ RegisterNetEvent('ar_spikes:server:pickupStandaloneSpikes', function(spikeId)
         })
     end
     
-    -- Only allow pickup of standalone spikes
     if spikeData.type ~= shared.SPIKE_TYPES.STANDALONE then
         return TriggerClientEvent('ox_lib:notify', src, {
             description = 'Invalid spike system type',
@@ -440,7 +410,6 @@ RegisterNetEvent('ar_spikes:server:pickupStandaloneSpikes', function(spikeId)
         })
     end
     
-    -- Check distance to any spike in the strip
     local playerCoords = GetEntityCoords(GetPlayerPed(src))
     local minDistance = math.huge
     
@@ -458,13 +427,10 @@ RegisterNetEvent('ar_spikes:server:pickupStandaloneSpikes', function(spikeId)
         })
     end
     
-    -- Give back spike roll
     exports.ox_inventory:AddItem(src, 'spike_roll', 1)
     
-    -- Remove spike from tracking
     deployedSpikes[spikeId] = nil
     
-    -- Tell all clients to remove this spike
     TriggerClientEvent('ar_spikes:client:removeStandaloneSpikes', -1, spikeId)
     
     TriggerClientEvent('ox_lib:notify', src, {
@@ -473,7 +439,6 @@ RegisterNetEvent('ar_spikes:server:pickupStandaloneSpikes', function(spikeId)
     })
 end)
 
--- Clean up spikes when player disconnects
 AddEventHandler('playerDropped', function(reason)
     local src = source
     removePlayerSpikes(src)
