@@ -20,7 +20,11 @@ function SpikeRoll.StopCarry()
         StopAnimTask(cache.ped, animConfig.dict, animConfig.name, 4.0)
     end
 
-    lib.hideTextUI()
+    -- lib.hideTextUI()
+    SendNUIMessage({
+        action = 'hideUI',
+    })
+
 end
 
 function SpikeRoll.DeploySpikes()
@@ -104,18 +108,25 @@ function ChangeSpikeCount(amount)
         SpikeRoll.SpikeLength = 4
     end
     
-    lib.showTextUI(string.format(
-        'Current Length: %d    \n' .. 
-        '[%s] - Increase Length    \n' .. 
-        '[%s] - Decrease Length    \n'..
-        '[%s] - Deploy Spikes    \n'..
-        '[%s] - Cancel',
-        SpikeRoll.SpikeLength,
-        common.GetKeyLabel(keybinds.increase.hash),
-        common.GetKeyLabel(keybinds.decrease.hash),
-        common.GetKeyLabel(keybinds.select.hash),
-        common.GetKeyLabel(keybinds.cancel.hash)
-    ))
+    -- lib.showTextUI(string.format(
+    --     'Current Length: %d    \n' .. 
+    --     '[%s] - Increase Length    \n' .. 
+    --     '[%s] - Decrease Length    \n'..
+    --     '[%s] - Deploy Spikes    \n'..
+    --     '[%s] - Cancel',
+    --     SpikeRoll.SpikeLength,
+    --     common.GetKeyLabel(keybinds.increase.hash),
+    --     common.GetKeyLabel(keybinds.decrease.hash),
+    --     common.GetKeyLabel(keybinds.select.hash),
+    --     common.GetKeyLabel(keybinds.cancel.hash)
+    -- ))
+
+    SendNUIMessage({
+        action = 'setLength',
+        data = {
+            length = SpikeRoll.SpikeLength
+        }
+    })
 
 end
 
@@ -185,18 +196,31 @@ exports('useRoll', function(data, slot)
             LocalState:set('spikes_carry_roll', true, true)
             
             -- Show initial text UI
-            lib.showTextUI(string.format(
-                'Current Length: %d    \n' .. 
-                '[%s] - Increase Length    \n' .. 
-                '[%s] - Decrease Length    \n'..
-                '[%s] - Deploy Spikes    \n'..
-                '[%s] - Cancel',
-                SpikeRoll.SpikeLength,
-                common.GetKeyLabel(keybinds.increase.hash),
-                common.GetKeyLabel(keybinds.decrease.hash),
-                common.GetKeyLabel(keybinds.select.hash),
-                common.GetKeyLabel(keybinds.cancel.hash)
-            ))
+            -- lib.showTextUI(string.format(
+            --     'Current Length: %d    \n' .. 
+            --     '[%s] - Increase Length    \n' .. 
+            --     '[%s] - Decrease Length    \n'..
+            --     '[%s] - Deploy Spikes    \n'..
+            --     '[%s] - Cancel',
+            --     SpikeRoll.SpikeLength,
+            --     common.GetKeyLabel(keybinds.increase.hash),
+            --     common.GetKeyLabel(keybinds.decrease.hash),
+            --     common.GetKeyLabel(keybinds.select.hash),
+            --     common.GetKeyLabel(keybinds.cancel.hash)
+            -- ))
+
+            SendNUIMessage({
+                action = 'showUI',
+                data = {
+                    keys = {
+                        increaseLabel = common.GetKeyLabel(keybinds.increase.hash),
+                        decreaseLabel = common.GetKeyLabel(keybinds.decrease.hash),
+                        confirmLabel = common.GetKeyLabel(keybinds.select.hash),
+                        cancelLabel = common.GetKeyLabel(keybinds.cancel.hash)
+                    }
+                    initialLength = SpikeRoll.SpikeLength
+                }
+            })
             
             -- Handle input for spike placement
             CreateThread(function()

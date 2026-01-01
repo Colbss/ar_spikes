@@ -24,10 +24,13 @@ server_scripts {
     'modules/server.lua'
 }
 
+ui_page 'web/dist/index.html'
+
 files {
     'config.lua',
     'sounds/dlc_stinger/stinger.awc',
 	'sounds/data/stinger.dat54.rel',
+    'web/dist/**/*',
 }
 
 data_file 'DLC_ITYP_REQUEST' 'spike_deployer.ytyp'

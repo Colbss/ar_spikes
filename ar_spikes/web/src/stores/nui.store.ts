@@ -20,7 +20,7 @@ export const useNUI = defineStore('nui', () => {
     })
     const spikeLength = ref<number>(1)
 
-    useNuiEvent<{ keys: SpikeKeysData }>('showUI', (payload) => {
+    useNuiEvent<{ keys: SpikeKeysData, initialLength: number }>('showUI', (payload) => {
         spikeDeployVisible.value = true
         if (payload.keys) {
             spikeKeysData.value = {
@@ -30,6 +30,7 @@ export const useNUI = defineStore('nui', () => {
                 cancelLabel: payload.keys.cancelLabel || 'ESC'
             }
         }
+        spikeLength.value = payload.initialLength || 1
     })
 
     useNuiEvent<{ length: number }>('setLength', (payload) => {
