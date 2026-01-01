@@ -13,7 +13,7 @@
 
 ### Install
 
-1. Download ZIP and extract ar_spikes
+1. Download the latest [release](https://github.com/Colbss/ar_spikes/releases/tag/Latest)
 2. Add items under `[SETUP]` to `ox_inventory/data/items.lua`
 3. Add images under `[SETUP]` to `ox_inventory/web/images`
 
