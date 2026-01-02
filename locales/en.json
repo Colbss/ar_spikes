@@ -1,8 +1,10 @@
 {
-    "keybind_select": "~b~Confirm~w~",
-    "keybind_cancel": "~b~Cancel~w~",
-    "keybind_increase": "~b~Increase~w~",
-    "keybind_decrease": "~b~Decrease~w~",
+    "keybind_select": "Confirm",
+    "keybind_cancel": "Cancel",
+    "keybind_increase": "Increase Length",
+    "keybind_decrease": "Decrease length",
+
+    "ui_spike_length": "Current Spike Length",
     
     "spikes_deploying": "Deploying spike strips...",
     "spikes_max": "You have reached the maximum number of spike rolls you can deploy",

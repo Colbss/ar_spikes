@@ -8,23 +8,23 @@ const nuiStore = useNUI();
   <div v-if="nuiStore.spikeDeployVisible" class="spike-deploy-container">
     <div class="spike-deploy-content">
       <div class="spike-deploy-length">
-        <span class="length-label">Spike Length - {{ nuiStore.spikeLength }}</span>
+        <span class="length-label">{{ nuiStore.getLocale('title') }} - {{ nuiStore.spikeLength }}</span>
       </div>
       <div class="spike-deploy-controls">
         <div class="control-item">
-          <span class="control-key">{{ nuiStore.spikeKeysData.increaseLabel }}</span>
+          <span class="control-key">{{ nuiStore.getLocale('increase') }}</span>
           <span class="control-label">Increase Length</span>
         </div>
         <div class="control-item">
-          <span class="control-key">{{ nuiStore.spikeKeysData.decreaseLabel }}</span>
+          <span class="control-key">{{ nuiStore.getLocale('decrease') }}</span>
           <span class="control-label">Decrease Length</span>
         </div>
         <div class="control-item">
-          <span class="control-key">{{ nuiStore.spikeKeysData.confirmLabel }}</span>
+          <span class="control-key">{{ nuiStore.getLocale('confirm') }}</span>
           <span class="control-label">Confirm</span>
         </div>
         <div class="control-item">
-          <span class="control-key">{{ nuiStore.spikeKeysData.cancelLabel }}</span>
+          <span class="control-key">{{ nuiStore.getLocale('cancel') }}</span>
           <span class="control-label">Cancel</span>
         </div>
       </div>

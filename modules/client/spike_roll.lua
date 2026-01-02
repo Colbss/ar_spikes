@@ -92,11 +92,12 @@ function SpikeRoll.DeploySpikes()
         SendNUIMessage({
             action = 'showUI',
             data = {
-                keys = {
-                    increaseLabel = common.GetKeyLabel(keybinds.increase.hash),
-                    decreaseLabel = common.GetKeyLabel(keybinds.decrease.hash),
-                    confirmLabel = common.GetKeyLabel(keybinds.select.hash),
-                    cancelLabel = common.GetKeyLabel(keybinds.cancel.hash)
+                locales = {
+                    title = locale('ui_spike_length'),
+                    increase = common.GetKeyLabel(keybinds.increase.hash),
+                    decrease = common.GetKeyLabel(keybinds.decrease.hash),
+                    confirm = common.GetKeyLabel(keybinds.select.hash),
+                    cancel = common.GetKeyLabel(keybinds.cancel.hash)
                 },
                 initialLength = SpikeRoll.SpikeLength
             }
@@ -213,11 +214,12 @@ exports('useRoll', function(data, slot)
             SendNUIMessage({
                 action = 'showUI',
                 data = {
-                    keys = {
-                        increaseLabel = common.GetKeyLabel(keybinds.increase.hash),
-                        decreaseLabel = common.GetKeyLabel(keybinds.decrease.hash),
-                        confirmLabel = common.GetKeyLabel(keybinds.select.hash),
-                        cancelLabel = common.GetKeyLabel(keybinds.cancel.hash)
+                    locales = {
+                        title = locale('ui_spike_length'),
+                        increase = common.GetKeyLabel(keybinds.increase.hash),
+                        decrease = common.GetKeyLabel(keybinds.decrease.hash),
+                        confirm = common.GetKeyLabel(keybinds.select.hash),
+                        cancel = common.GetKeyLabel(keybinds.cancel.hash)
                     },
                     initialLength = SpikeRoll.SpikeLength
                 }

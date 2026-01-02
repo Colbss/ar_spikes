@@ -225,7 +225,7 @@ keybinds = {}
 
 keybinds.select = lib.addKeybind({
     name = 'spikes_select',
-    description = locale('keybind_select'),
+    description = string.format('~b~%s~w~', locale('keybind_select')), 
     defaultKey = 'RETURN',
     onPressed = function(self)
         ConfirmSpikePlacement()
@@ -234,7 +234,7 @@ keybinds.select = lib.addKeybind({
 
 keybinds.cancel = lib.addKeybind({
     name = 'spikes_cancel',
-    description = locale('keybind_cancel'),
+    description = string.format('~b~%s~w~', locale('keybind_cancel')),
     defaultKey = 'BACK',
     onPressed = function(self)
         CancelSpikePlacement()
@@ -243,7 +243,7 @@ keybinds.cancel = lib.addKeybind({
 
 keybinds.increase = lib.addKeybind({
     name = 'spikes_increase',
-    description = locale('keybind_increase'),
+    description = string.format('~b~%s~w~', locale('keybind_increase')),
     defaultKey = 'UP',
     onPressed = function(self)
         ChangeSpikeCount(1)
@@ -252,7 +252,7 @@ keybinds.increase = lib.addKeybind({
 
 keybinds.decrease = lib.addKeybind({
     name = 'spikes_decrease',
-    description = locale('keybind_decrease'),
+    description = string.format('~b~%s~w~', locale('keybind_decrease')),
     defaultKey = 'DOWN',
     onPressed = function(self)
         ChangeSpikeCount(-1)
