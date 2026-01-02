@@ -102,7 +102,7 @@ function SpikeDeployer.ResetRemoteDeployer(spikeId)
         local animConfig = config.deployer.anim.use
         if lib.progressBar({
             duration = 3000,
-            label = 'Resetting Spike Deployer...',
+            label = locale('deployer_resetting'),
             useWhileDead = false,
             allowCuffed = false,
             allowSwimming = false,
@@ -136,11 +136,11 @@ function SpikeDeployer.GetTargetData(spikeId)
         {
             name = 'spike_get_frequency',
             icon = 'fas fa-broadcast-tower',
-            label = 'Get Frequency',
+            label = locale('deployer_get_frequency'),
             distance = 2.0,
             onSelect = function()
                 lib.notify({
-                    description = 'Frequency: ' .. spikeData.frequency .. ' MHz',
+                    description = locale('deployer_frequency', spikeData.frequency),
                     type = 'inform'
                 })
             end
@@ -151,7 +151,7 @@ function SpikeDeployer.GetTargetData(spikeId)
         targetData[#targetData + 1] = {
             name = 'spike_pickup',
             icon = 'fas fa-hand-paper',
-            label = 'Pick Up Deployer',
+            label = locale('deployer_pickup'),
             distance = 2.0,
             canInteract = function()
                 return common.HasJobAccess(config.deployer.jobs) and spikeData.state == shared.SPIKE_STATES.PLACED
@@ -167,7 +167,7 @@ function SpikeDeployer.GetTargetData(spikeId)
         targetData[#targetData + 1] = {
             name = 'spike_reset_deployer',
             icon = 'fas fa-undo',
-            label = 'Reset Deployer',
+            label = locale('deployer_reset'),
             distance = 2.0,
             canInteract = function()
                 return common.HasJobAccess(config.deployer.jobs)
@@ -317,21 +317,21 @@ exports('useDeployer', function(data)
             local canDeploy = lib.callback.await('ar_spikes:server:checkMaxSpikes', false, shared.SPIKE_TYPES.REMOTE_DEPLOYER)
             if not canDeploy then
                 return lib.notify({
-                    description = 'You have reached the maximum number of active spike deployers.',
+                    description = locale('deployer_max'),
                     type = 'error'
                 })
             end
 
             if cache.vehicle then
                 return lib.notify({
-                    description = 'You cannot deploy in a vehicle.',
+                    description = locale('in_vehicle'),
                     type = 'error'
                 })
             end
 
             if not common.HasJobAccess(config.deployer.jobs) then
                 return lib.notify({
-                    description = 'You do not have permission to use the Spike Deployer.',
+                    description = locale('no_permission'),
                     type = 'error'
                 })
             end
@@ -348,7 +348,7 @@ exports('useDeployer', function(data)
             local animConfig = config.deployer.anim.use
             if lib.progressBar({
                 duration = 3000,
-                label = 'Using Spike Deployer...',
+                label = locale('deployer_place'),
                 useWhileDead = false,
                 allowCuffed = false,
                 allowSwimming = false,
@@ -384,7 +384,7 @@ exports('useRemote', function(data)
             local frequency = data.metadata?.frequency
             if not frequency then
                 return lib.notify({
-                    description = 'Remote is not tuned to a frequency.',
+                    description = locale('remote_no_frequency'),
                     type = 'error'
                 })
             end
@@ -432,8 +432,8 @@ exports('tuneFrequency', function(data)
             
             SpikeDeployer.StartTuneAnimation()
 
-            local input = lib.inputDialog('Tune Remote Frequency', {
-                {type = 'number', label = 'Frequency (MHz)', description = 'Enter frequency between 100-999', default = 100, min = 100, max = 999}
+            local input = lib.inputDialog(locale('remote_input_header'), {
+                {type = 'number', label = locale('remote_input_label'), description = locale('remote_input_description'), default = 100, min = 100, max = 999}
             })
             
             SpikeDeployer.StopTuneAnimation()
@@ -443,7 +443,7 @@ exports('tuneFrequency', function(data)
             TriggerServerEvent('ar_spikes:server:tuneRemoteFrequency', data.slot, frequency)
             
             lib.notify({
-                description = 'Remote tuned to ' .. frequency .. ' MHz',
+                description = locale('remote_tuned', frequency),
                 type = 'success'
             })
         end

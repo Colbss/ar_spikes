@@ -43,7 +43,7 @@ function SpikeRoll.DeploySpikes()
     local animConfig = config.roll.anim.use
     if lib.progressBar({
         duration = 2000,
-        label = 'Deploying spike strips...',
+        label = locale('spikes_deploying'),
         useWhileDead = false,
         canCancel = true,
         disable = {
@@ -184,21 +184,21 @@ exports('useRoll', function(data, slot)
             local canDeploy = lib.callback.await('ar_spikes:server:checkMaxSpikes', false, shared.SPIKE_TYPES.STANDALONE)
             if not canDeploy then
                 return lib.notify({
-                    description = 'You have reached the maximum number of spike rolls you can deploy.',
+                    description = locale('spikes_max'),
                     type = 'error'
                 })
             end
 
             if SpikeRoll.DeployState ~= 0 then
                 return lib.notify({
-                    description = 'You are already deploying a spike roll.',
+                    description = locale('spikes_in_action'),
                     type = 'error'
                 })
             end
             
             if cache.vehicle then
                 return lib.notify({
-                    description = 'You cannot use this in a vehicle.',
+                    description = locale('in_vehicle'),
                     type = 'error'
                 })
             end
@@ -234,7 +234,7 @@ exports('useRoll', function(data, slot)
                     if cache.vehicle then
                         SpikeRoll.StopCarry()
                         lib.notify({
-                            description = 'Spike roll placement cancelled - entered vehicle.',
+                            description = locale('spikes_cancelled'),
                             type = 'error'
                         })
                         break
@@ -282,7 +282,7 @@ RegisterNetEvent('ar_spikes:client:createStandaloneSpikes', function(spikeId, sp
                 {
                     name = 'pickup_standalone_spikes_' .. spikeId,
                     icon = 'fas fa-hand-paper',
-                    label = 'Pick Up Spike Strips',
+                    label = locale('spikes_pickup'),
                     distance = 2.0,
                     canInteract = function()
                         return common.HasJobAccess(config.roll.jobs)
@@ -313,7 +313,7 @@ RegisterNetEvent('ar_spikes:client:createStandaloneSpikes', function(spikeId, sp
                             local animConfig = config.roll.anim.use
                             if lib.progressBar({
                                 duration = 3000,
-                                label = 'Picking up spike strips...',
+                                label = locale('spikes_picking_up'),
                                 useWhileDead = false,
                                 allowCuffed = false,
                                 allowSwimming = false,

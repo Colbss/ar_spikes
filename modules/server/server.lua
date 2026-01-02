@@ -1,5 +1,6 @@
 local config = require 'config'
 local shared = require 'shared'
+lib.locale()
 
 local deployedSpikes = {}
 local spikeIdCounter = 0
@@ -52,7 +53,7 @@ RegisterNetEvent('ar_spikes:server:createSpike', function(spikeData)
             deployCoords = vector3(spikeData.positions[1].x, spikeData.positions[1].y, spikeData.positions[1].z)
         else
             TriggerClientEvent('ox_lib:notify', src, {
-                description = 'Invalid spike positions data',
+                description = locale('server_invalid_spike_position'),
                 type = 'error'
             })
             return
@@ -65,7 +66,7 @@ RegisterNetEvent('ar_spikes:server:createSpike', function(spikeData)
     
     if distance > 5.0 then
         TriggerClientEvent('ox_lib:notify', src, {
-            description = 'You cannot place spikes this far away',
+            description = locale('server_too_far'),
             type = 'error'
         })
         return
@@ -76,7 +77,7 @@ RegisterNetEvent('ar_spikes:server:createSpike', function(spikeData)
     if spikeData.type == shared.SPIKE_TYPES.REMOTE_DEPLOYER then
         if not hasJobAccess(Player, config.deployer.jobs) then
             return TriggerClientEvent('ox_lib:notify', src, {
-                description = 'You do not have permission to use spike deployers',
+                description = locale('no_permission'),
                 type = 'error'
             })
         end
@@ -106,12 +107,11 @@ RegisterNetEvent('ar_spikes:server:createSpike', function(spikeData)
             }, src)
             
             TriggerClientEvent('ox_lib:notify', src, {
-                description = 'Spike deployer placed on frequency: ' .. frequency .. ' MHz',
+                description = locale('server_deployer_placed', frequency),
                 type = 'success'
             })
 
-
-            CreateLog(src, 'Placed', 'Placed spike deployer', {
+            CreateLog(src, locale('logs_deployer_placed'), locale('logs_deployer_placed_description'), {
                 id = spikeId,
                 type = shared.SPIKE_TYPES.REMOTE_DEPLOYER,
                 coords = {
@@ -123,7 +123,7 @@ RegisterNetEvent('ar_spikes:server:createSpike', function(spikeData)
             })
         else
             TriggerClientEvent('ox_lib:notify', src, {
-                description = 'You don\'t have a spike deployer',
+                description = locale('server_no_deployer'),
                 type = 'error'
             })
         end
@@ -131,7 +131,7 @@ RegisterNetEvent('ar_spikes:server:createSpike', function(spikeData)
     elseif spikeData.type == shared.SPIKE_TYPES.STANDALONE then
         if not hasJobAccess(Player, config.roll.jobs) then
             return TriggerClientEvent('ox_lib:notify', src, {
-                description = 'You do not have permission to use spike rolls',
+                description = locale('no_permission'),
                 type = 'error'
             })
         end
@@ -156,11 +156,11 @@ RegisterNetEvent('ar_spikes:server:createSpike', function(spikeData)
             }, src)
             
             TriggerClientEvent('ox_lib:notify', src, {
-                description = 'Spike strips deployed successfully',
+                description = locale('server_spikes_placed'),
                 type = 'success'
             })
 
-            CreateLog(src, 'Deployed', 'Deployed standalone spikes', {
+            CreateLog(src, locale('logs_spikes_placed'), locale('logs_spikes_placed_description'), {
                 id = spikeId,
                 type = shared.SPIKE_TYPES.STANDALONE,
                 coords = {
@@ -172,7 +172,7 @@ RegisterNetEvent('ar_spikes:server:createSpike', function(spikeData)
             })
         else
             TriggerClientEvent('ox_lib:notify', src, {
-                description = 'You don\'t have a spike roll',
+                description = locale('server_no_spikes'),
                 type = 'error'
             })
         end
@@ -268,7 +268,7 @@ RegisterNetEvent('ar_spikes:server:deployRemoteSpikes', function(spikeId, positi
     local spikeData = deployedSpikes[spikeId]
     if not spikeData then
         return TriggerClientEvent('ox_lib:notify', src, {
-            description = 'Spike system not found',
+            description = locale('server_not_found'),
             type = 'error'
         })
     end
@@ -296,7 +296,7 @@ RegisterNetEvent('ar_spikes:server:deployRemoteSpikes', function(spikeId, positi
 
     TriggerClientEvent('ar_spikes:client:deployRemoteSpikes', -1, spikeId, positions)
 
-    CreateLog(src, 'Deployed', 'Activated remote spikes', {
+    CreateLog(src, locale('logs_remote_used'), locale('logs_remote_used_description'), {
         id = spikeId,
         type = shared.SPIKE_TYPES.REMOTE_DEPLOYER,
         coords = {
@@ -317,21 +317,21 @@ RegisterNetEvent('ar_spikes:server:resetDeployer', function(spikeId)
     local spikeData = deployedSpikes[spikeId]
     if not spikeData then
         return TriggerClientEvent('ox_lib:notify', src, {
-            description = 'Deployer not found',
+            description = locale('server_deployer_not_found'),
             type = 'error'
         })
     end
     
     if not hasJobAccess(Player, config.deployer.jobs) then
         return TriggerClientEvent('ox_lib:notify', src, {
-            description = 'You do not have permission to reset deployers',
+            description = locale('no_permission'),
             type = 'error'
         })
     end
     
     if spikeData.type ~= shared.SPIKE_TYPES.REMOTE_DEPLOYER or spikeData.state ~= shared.SPIKE_STATES.DEPLOYED then
         return TriggerClientEvent('ox_lib:notify', src, {
-            description = 'Deployer is not deployed or invalid',
+            description = locale('server_deployer_invalid'),
             type = 'error'
         })
     end
@@ -342,7 +342,7 @@ RegisterNetEvent('ar_spikes:server:resetDeployer', function(spikeId)
     
     if distance > 5.0 then
         return TriggerClientEvent('ox_lib:notify', src, {
-            description = 'You are too far away from the deployer',
+            description = locale('server_too_far'),
             type = 'error'
         })
     end
@@ -353,11 +353,11 @@ RegisterNetEvent('ar_spikes:server:resetDeployer', function(spikeId)
     TriggerClientEvent('ar_spikes:client:resetDeployer', -1, spikeId)
     
     TriggerClientEvent('ox_lib:notify', src, {
-        description = 'Deployer reset successfully',
+        description = locale('server_deployer_reset'),
         type = 'success'
     })
 
-    CreateLog(src, 'Reset', 'Reset remote spikes', {
+    CreateLog(src, locale('logs_deployer_reset'), locale('logs_deployer_reset_description'), {
         id = spikeId,
         type = shared.SPIKE_TYPES.REMOTE_DEPLOYER,
         coords = {
@@ -385,21 +385,21 @@ RegisterNetEvent('ar_spikes:server:pickupSpikeDeployer', function(spikeId)
     local spikeData = deployedSpikes[spikeId]
     if not spikeData then
         return TriggerClientEvent('ox_lib:notify', src, {
-            description = 'Spike system not found',
+            description = locale('server_not_found'),
             type = 'error'
         })
     end
     
     if not hasJobAccess(Player, config.deployer.jobs) then
         return TriggerClientEvent('ox_lib:notify', src, {
-            description = 'You do not have permission to pick up equipment',
+            description = locale('no_permission'),
             type = 'error'
         })
     end
     
     if spikeData.type ~= shared.SPIKE_TYPES.REMOTE_DEPLOYER or spikeData.state ~= shared.SPIKE_STATES.PLACED then
         return TriggerClientEvent('ox_lib:notify', src, {
-            description = 'Cannot pick up deployed spike systems',
+            description = locale('server_deployer_cannot_pickup'),
             type = 'error'
         })
     end
@@ -409,7 +409,7 @@ RegisterNetEvent('ar_spikes:server:pickupSpikeDeployer', function(spikeId)
     
     if distance > 5.0 then
         return TriggerClientEvent('ox_lib:notify', src, {
-            description = 'You are too far away',
+            description = locale('server_too_far'),
             type = 'error'
         })
     end
@@ -421,11 +421,11 @@ RegisterNetEvent('ar_spikes:server:pickupSpikeDeployer', function(spikeId)
     TriggerClientEvent('ar_spikes:client:removeDeployer', -1, spikeId)
     
     TriggerClientEvent('ox_lib:notify', src, {
-        description = 'Equipment picked up',
+        description = locale('server_deployer_picked_up'),
         type = 'success'
     })
 
-    CreateLog(src, 'Pickup', 'Picked up remote spikes', {
+    CreateLog(src, locale('logs_deployer_pickup'), locale('logs_deployer_pickup_description'), {
         id = spikeId,
         type = shared.SPIKE_TYPES.REMOTE_DEPLOYER,
         coords = {
@@ -445,21 +445,21 @@ RegisterNetEvent('ar_spikes:server:pickupStandaloneSpikes', function(spikeId)
     local spikeData = deployedSpikes[spikeId]
     if not spikeData then
         return TriggerClientEvent('ox_lib:notify', src, {
-            description = 'Spike system not found',
+            description = locale('server_not_found'),
             type = 'error'
         })
     end
     
     if not hasJobAccess(Player, config.roll.jobs) then
         return TriggerClientEvent('ox_lib:notify', src, {
-            description = 'You do not have permission to pick up spike strips',
+            description = locale('no_permission'),
             type = 'error'
         })
     end
     
     if spikeData.type ~= shared.SPIKE_TYPES.STANDALONE then
         return TriggerClientEvent('ox_lib:notify', src, {
-            description = 'Invalid spike system type',
+            description = locale('server_spikes_invalid'),
             type = 'error'
         })
     end
@@ -476,7 +476,7 @@ RegisterNetEvent('ar_spikes:server:pickupStandaloneSpikes', function(spikeId)
     
     if minDistance > 5.0 then
         return TriggerClientEvent('ox_lib:notify', src, {
-            description = 'You are too far away',
+            description = locale('server_too_far'),
             type = 'error'
         })
     end
@@ -488,11 +488,11 @@ RegisterNetEvent('ar_spikes:server:pickupStandaloneSpikes', function(spikeId)
     TriggerClientEvent('ar_spikes:client:removeStandaloneSpikes', -1, spikeId)
     
     TriggerClientEvent('ox_lib:notify', src, {
-        description = 'Spike strips picked up',
+        description = locale('server_spikes_picked_up'),
         type = 'success'
     })
 
-    CreateLog(src, 'Pickup', 'Picked up standalone spikes', {
+    CreateLog(src, locale('logs_spikes_picked_up'), locale('logs_spikes_picked_up_description'), {
         id = spikeId,
         type = shared.SPIKE_TYPES.STANDALONE,
         positions = spikeData.positions,
