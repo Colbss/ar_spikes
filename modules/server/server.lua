@@ -27,23 +27,10 @@ local function removePlayerSpikes(serverId)
     end
 end
 
-local function hasJobAccess(Player, jobConfig)
-    if not jobConfig then return true end
-    
-    local playerJob = Player.PlayerData.job
-    if not playerJob then return false end
-    
-    local requiredGrade = jobConfig[playerJob.name]
-    if not requiredGrade then return false end
-    
-    return playerJob.grade.level >= requiredGrade
-end
-
 RegisterNetEvent('ar_spikes:server:createSpike', function(spikeData)
     local src = source
-    local Player = exports.qbx_core:GetPlayer(src)
     
-    if not Player then return end
+    if not Framework.GetPlayer(src) then return end
     
     local playerCoords = GetEntityCoords(GetPlayerPed(src))
     local deployCoords
@@ -75,7 +62,7 @@ RegisterNetEvent('ar_spikes:server:createSpike', function(spikeData)
     local spikeId = generateSpikeId()
     
     if spikeData.type == shared.SPIKE_TYPES.REMOTE_DEPLOYER then
-        if not hasJobAccess(Player, config.deployer.jobs) then
+        if not Framework.HasJobAccess(src, config.deployer.jobs) then
             return TriggerClientEvent('ox_lib:notify', src, {
                 description = locale('no_permission'),
                 type = 'error'
@@ -129,7 +116,7 @@ RegisterNetEvent('ar_spikes:server:createSpike', function(spikeData)
         end
         
     elseif spikeData.type == shared.SPIKE_TYPES.STANDALONE then
-        if not hasJobAccess(Player, config.roll.jobs) then
+        if not Framework.HasJobAccess(src, config.roll.jobs) then
             return TriggerClientEvent('ox_lib:notify', src, {
                 description = locale('no_permission'),
                 type = 'error'
@@ -181,9 +168,8 @@ end)
 
 lib.callback.register('ar_spikes:server:validateRemoteDeployment', function(source, frequency)
     local src = source
-    local Player = exports.qbx_core:GetPlayer(src)
-    
-    if not Player then
+
+    if not Framework.GetPlayer(src) then
         return { 
             success = false, 
             message = "Player not found" 
@@ -238,9 +224,8 @@ end)
 
 lib.callback.register('ar_spikes:server:checkMaxSpikes', function(source, sType)
     local src = source
-    local Player = exports.qbx_core:GetPlayer(src)
-    
-    if not Player then
+
+    if not Framework.GetPlayer(src) then
         return false
     end
 
@@ -262,8 +247,8 @@ end)
 
 RegisterNetEvent('ar_spikes:server:deployRemoteSpikes', function(spikeId, positions)
     local src = source
-    local Player = exports.qbx_core:GetPlayer(src)
-    if not Player then return end
+
+    if not Framework.GetPlayer(src) then return end
 
     local spikeData = deployedSpikes[spikeId]
     if not spikeData then
@@ -310,9 +295,8 @@ end)
 
 RegisterNetEvent('ar_spikes:server:resetDeployer', function(spikeId)
     local src = source
-    local Player = exports.qbx_core:GetPlayer(src)
     
-    if not Player then return end
+    if not Framework.GetPlayer(src) then return end
     
     local spikeData = deployedSpikes[spikeId]
     if not spikeData then
@@ -322,7 +306,7 @@ RegisterNetEvent('ar_spikes:server:resetDeployer', function(spikeId)
         })
     end
     
-    if not hasJobAccess(Player, config.deployer.jobs) then
+    if not Framework.HasJobAccess(src, config.deployer.jobs) then
         return TriggerClientEvent('ox_lib:notify', src, {
             description = locale('no_permission'),
             type = 'error'
@@ -370,6 +354,9 @@ end)
 
 RegisterNetEvent('ar_spikes:server:tuneRemoteFrequency', function(slot, frequency)
     local src = source
+
+    if not Framework.GetPlayer(src) then return end
+
     local item = exports.ox_inventory:GetSlot(src, slot)
     if item and item.name == 'spike_deployer_remote' then
         exports.ox_inventory:SetMetadata(src, slot, {frequency = frequency})
@@ -378,9 +365,8 @@ end)
 
 RegisterNetEvent('ar_spikes:server:pickupSpikeDeployer', function(spikeId)
     local src = source
-    local Player = exports.qbx_core:GetPlayer(src)
-    
-    if not Player then return end
+
+    if not Framework.GetPlayer(src) then return end
     
     local spikeData = deployedSpikes[spikeId]
     if not spikeData then
@@ -390,7 +376,7 @@ RegisterNetEvent('ar_spikes:server:pickupSpikeDeployer', function(spikeId)
         })
     end
     
-    if not hasJobAccess(Player, config.deployer.jobs) then
+    if not Framework.HasJobAccess(src, config.deployer.jobs) then
         return TriggerClientEvent('ox_lib:notify', src, {
             description = locale('no_permission'),
             type = 'error'
@@ -438,9 +424,8 @@ end)
 
 RegisterNetEvent('ar_spikes:server:pickupStandaloneSpikes', function(spikeId)
     local src = source
-    local Player = exports.qbx_core:GetPlayer(src)
-    
-    if not Player then return end
+
+    if not Framework.GetPlayer(src) then return end
     
     local spikeData = deployedSpikes[spikeId]
     if not spikeData then
@@ -450,7 +435,7 @@ RegisterNetEvent('ar_spikes:server:pickupStandaloneSpikes', function(spikeId)
         })
     end
     
-    if not hasJobAccess(Player, config.roll.jobs) then
+    if not Framework.HasJobAccess(src, config.roll.jobs) then
         return TriggerClientEvent('ox_lib:notify', src, {
             description = locale('no_permission'),
             type = 'error'
@@ -498,6 +483,12 @@ RegisterNetEvent('ar_spikes:server:pickupStandaloneSpikes', function(spikeId)
         positions = spikeData.positions,
     })
 end)
+
+if Framework then
+    lib.print.info((string.format('Framework detected: %s', Framework.Name)))
+else
+    lib.print.error('No framework detected, spike strip functionalities will not work properly.')
+end
 
 AddEventHandler('playerDropped', function(reason)
     local src = source

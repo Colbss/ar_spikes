@@ -9,21 +9,21 @@ Preview available on [streamable](https://streamable.com/sas0ry)
 
 - ox_lib
 - ox_inventory
-- qbx_core (will update later)
 
 ### Install
 
 1. Download the latest [release](https://github.com/Colbss/ar_spikes/releases/latest)
 2. Add items under `[SETUP]` to `ox_inventory/data/items.lua`
 3. Add images under `[SETUP]` to `ox_inventory/web/images`
+4. Check / setup framework bridge
+
+### Frameworks
+
+This script is framework agnostic, however you must setup the nececessary logic for your framework. An example is provided for qbx_core under `modules/bridge`
 
 ### Credits
 
 Credit to [Loaf Scripts](https://github.com/loaf-scripts/loaf_spikestrips/tree/main) for the stinger sounds.
-
-### To Do
-
-- Update player references to be framework generic
 
 ## License
 

@@ -154,7 +154,7 @@ function SpikeDeployer.GetTargetData(spikeId)
             label = locale('deployer_pickup'),
             distance = 2.0,
             canInteract = function()
-                return common.HasJobAccess(config.deployer.jobs) and spikeData.state == shared.SPIKE_STATES.PLACED
+                return Framework.HasJobAccess(config.deployer.jobs) and spikeData.state == shared.SPIKE_STATES.PLACED
             end,
             onSelect = function()
                 local deployerCoords = GetEntityCoords(spikeEntity)
@@ -170,7 +170,7 @@ function SpikeDeployer.GetTargetData(spikeId)
             label = locale('deployer_reset'),
             distance = 2.0,
             canInteract = function()
-                return common.HasJobAccess(config.deployer.jobs)
+                return Framework.HasJobAccess(config.deployer.jobs)
             end,
             onSelect = function()
                 SpikeDeployer.ResetRemoteDeployer(spikeId)
@@ -329,7 +329,7 @@ exports('useDeployer', function(data)
                 })
             end
 
-            if not common.HasJobAccess(config.deployer.jobs) then
+            if not Framework.HasJobAccess(config.deployer.jobs) then
                 return lib.notify({
                     description = locale('no_permission'),
                     type = 'error'

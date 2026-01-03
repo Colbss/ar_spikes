@@ -95,19 +95,6 @@ function common.CreateSpikeStrip(positions, parentId)
     return spikes
 end
 
-function common.HasJobAccess(jobConfig)
-    if not jobConfig then return true end
-    
-    local PlayerData = exports.qbx_core:GetPlayerData()
-    if not PlayerData or not PlayerData.job then return false end
-    
-    local playerJob = PlayerData.job
-    local requiredGrade = jobConfig[playerJob.name]
-    if not requiredGrade then return false end
-    
-    return playerJob.grade.level >= requiredGrade
-end
-
 function common.FaceCoords(coords, callback)
     local heading = headingToCoords(cache.ped, coords)
     TaskAchieveHeading(cache.ped, heading, 500)
@@ -400,6 +387,12 @@ end)
 -- ██  ██ ▄████▄ ███  ██ ████▄  ██     ██████ █████▄  ▄█████ 
 -- ██████ ██▄▄██ ██ ▀▄██ ██  ██ ██     ██▄▄   ██▄▄██▄ ▀▀▀▄▄▄ 
 -- ██  ██ ██  ██ ██   ██ ████▀  ██████ ██▄▄▄▄ ██   ██ █████▀ 
+
+if Framework then
+    lib.print.info((string.format('Framework detected: %s', Framework.Name)))
+else
+    lib.print.error('No framework detected, spike strip functionalities will not work properly.')
+end
 
 AddEventHandler('onResourceStop', function(resourceName)
     if resourceName ~= GetCurrentResourceName() then return end

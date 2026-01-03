@@ -5,7 +5,7 @@ use_experimental_fxv2_oal 'yes'
 
 description 'Aether Scripts - Spike Strips'
 author 'Colbss'
-version '1.1.0'
+version '1.6.0'
 
 dependencies {
     'ox_lib',
@@ -13,15 +13,16 @@ dependencies {
 
 shared_scripts { 
     '@ox_lib/init.lua',
-    '@qbx_core/modules/lib.lua',
 }
 
 client_scripts { 
+    'modules/bridge/client/*.lua',
     'modules/client/*.lua',
 } 
 
 server_scripts {
-    'modules/server/*.lua'
+    'modules/bridge/server/*.lua',
+    'modules/server/*.lua',
 }
 
 ui_page 'web/dist/index.html'

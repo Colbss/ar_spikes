@@ -287,7 +287,7 @@ RegisterNetEvent('ar_spikes:client:createStandaloneSpikes', function(spikeId, sp
                     label = locale('spikes_pickup'),
                     distance = 2.0,
                     canInteract = function()
-                        return common.HasJobAccess(config.roll.jobs)
+                        return Framework.HasJobAccess(config.roll.jobs)
                     end,
                     onSelect = function()
 
